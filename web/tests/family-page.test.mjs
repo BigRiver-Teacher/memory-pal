@@ -39,6 +39,15 @@ test("family page renders memory metadata and source labels", () => {
   assert.ok(clientSource.includes("患者自述"));
 });
 
+test("family page supports editing and deleting memories", () => {
+  assert.ok(clientSource.includes('method: "PUT"'));
+  assert.ok(clientSource.includes('method: "DELETE"'));
+  assert.ok(clientSource.includes("Authorization: `Bearer ${accessToken}`"));
+  assert.ok(clientSource.includes("确定删除这条记忆吗？删除后无法恢复"));
+  assert.ok(clientSource.includes("保存修改"));
+  assert.ok(clientSource.includes("refreshMemories"));
+});
+
 test("family page renders large memory cards and add dialog", () => {
   assert.ok(clientSource.includes("忆伴 · 家属端"));
   assert.ok(clientSource.includes("添加记忆"));

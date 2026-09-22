@@ -75,6 +75,12 @@ export default function FamilyClient({
   const [content, setContent] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const [editingMemory, setEditingMemory] = useState<MemoryRow | null>(null);
+  const [editContent, setEditContent] = useState("");
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [deletingMemoryId, setDeletingMemoryId] = useState("");
+  const [actionError, setActionError] = useState("");
 
   useEffect(() => {
     let isActive = true;
@@ -165,6 +171,132 @@ export default function FamilyClient({
     };
   }, [router, supabase]);
 
+  async function getAccessToken() {
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data.session?.access_token;
+
+    if (!accessToken) {
+      router.replace("/login");
+      return null;
+    }
+
+    return accessToken;
+  }
+
+  async function refreshMemories() {
+    if (!patientId) {
+      return;
+    }
+
+    const response = await fetch(
+      `/api/memory?patientId=${encodeURIComponent(patientId)}`,
+    );
+
+    if (!response.ok) {
+      throw new Error("Memory list request failed");
+    }
+
+    const data = (await response.json()) as {
+      memories?: MemoryRow[];
+    };
+
+    setMemories(data.memories ?? []);
+  }
+
+  function startEditingMemory(memory: MemoryRow) {
+    setEditingMemory(memory);
+    setEditContent(memory.content);
+    setEditError("");
+  }
+
+  async function saveEditedMemory() {
+    const trimmedContent = editContent.trim();
+
+    if (!editingMemory || !trimmedContent || isUpdating) {
+      return;
+    }
+
+    setIsUpdating(true);
+    setEditError("");
+
+    try {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        return;
+      }
+
+      const response = await fetch("/api/memory", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          memoryId: editingMemory.id,
+          content: trimmedContent,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Memory update request failed");
+      }
+
+      await refreshMemories();
+      setEditingMemory(null);
+      setEditContent("");
+    } catch {
+      setEditError("保存失败，请再试一次");
+    } finally {
+      setIsUpdating(false);
+    }
+  }
+
+  async function deleteMemory(memory: MemoryRow) {
+    if (deletingMemoryId) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "确定删除这条记忆吗？删除后无法恢复",
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setDeletingMemoryId(memory.id);
+    setActionError("");
+
+    try {
+      const accessToken = await getAccessToken();
+
+      if (!accessToken) {
+        return;
+      }
+
+      const response = await fetch("/api/memory", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          memoryId: memory.id,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Memory delete request failed");
+      }
+
+      await refreshMemories();
+    } catch {
+      setActionError("删除失败，请稍后再试");
+    } finally {
+      setDeletingMemoryId("");
+    }
+  }
   async function saveMemory() {
     const trimmedContent = content.trim();
 
@@ -287,6 +419,15 @@ export default function FamilyClient({
             </p>
           )}
 
+          {actionError && (
+            <p
+              role="alert"
+              className="rounded-3xl border border-[#e7b9b3] bg-[#fff0ef] px-6 py-5 text-center text-lg font-bold text-[#a33a31]"
+            >
+              {actionError}
+            </p>
+          )}
+
           {!isLoading && !loadError && memories.length === 0 && (
             <p className="rounded-3xl border border-dashed border-[#cfc3b3] bg-white/70 px-6 py-10 text-center text-xl leading-8 text-[#7a6f61]">
               还没有保存记忆，点击下方“添加记忆”开始记录。
@@ -308,9 +449,30 @@ export default function FamilyClient({
                   key={memory.id}
                   className="rounded-3xl border border-[#e4dbcf] bg-white p-5 shadow-sm sm:p-6"
                 >
-                  <p className="text-xl leading-9 text-[#2d2924] sm:text-2xl">
-                    {memory.content}
-                  </p>
+                  <div className="flex items-start justify-between gap-4">
+                    <p className="flex-1 text-xl leading-9 text-[#2d2924] sm:text-2xl">
+                      {memory.content}
+                    </p>
+                    <div className="flex shrink-0 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => startEditingMemory(memory)}
+                        className="min-h-9 rounded-xl bg-[#eef7f2] px-3 text-sm font-bold text-[#205c4b] transition hover:bg-[#dcece5]"
+                      >
+                        编辑
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void deleteMemory(memory)}
+                        disabled={deletingMemoryId === memory.id}
+                        className="min-h-9 rounded-xl bg-[#fff0ef] px-3 text-sm font-bold text-[#a33a31] transition hover:bg-[#ffe0dd] disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        {deletingMemoryId === memory.id
+                          ? "删除中..."
+                          : "删除"}
+                      </button>
+                    </div>
+                  </div>
 
                   <div className="mt-4 flex flex-wrap gap-2">
                     <span className="rounded-full bg-[#fff3d8] px-3 py-1 text-base font-semibold text-[#8a5a16]">
@@ -437,6 +599,76 @@ export default function FamilyClient({
         </div>
       )}
 
+      {editingMemory && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/35 p-4 backdrop-blur-sm sm:items-center sm:justify-center">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="edit-memory-title"
+            className="w-full max-w-xl rounded-[28px] border border-[#e4dbcf] bg-[#fffdf8] p-5 shadow-2xl sm:p-7"
+          >
+            <h2
+              id="edit-memory-title"
+              className="text-3xl font-bold text-[#205c4b]"
+            >
+              编辑记忆
+            </h2>
+            <p className="mt-2 text-lg leading-8 text-[#7a6f61]">
+              保存后会重新生成向量、情绪和关联人物。
+            </p>
+
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void saveEditedMemory();
+              }}
+            >
+              <label htmlFor="edit-memory-content" className="sr-only">
+                记忆内容
+              </label>
+              <textarea
+                id="edit-memory-content"
+                autoFocus
+                rows={5}
+                value={editContent}
+                onChange={(event) => setEditContent(event.target.value)}
+                className="mt-5 w-full resize-none rounded-2xl border-2 border-[#cfc3b3] bg-white px-5 py-4 text-xl leading-8 text-[#2d2924] outline-none transition focus:border-[#4f8f78] focus:ring-4 focus:ring-[#4f8f78]/20"
+              />
+
+              {editError && (
+                <p
+                  role="alert"
+                  className="mt-3 rounded-2xl bg-[#fff0ef] px-4 py-3 text-center text-base font-semibold text-[#a33a31]"
+                >
+                  {editError}
+                </p>
+              )}
+
+              <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingMemory(null);
+                    setEditContent("");
+                    setEditError("");
+                  }}
+                  disabled={isUpdating}
+                  className="min-h-14 rounded-2xl border-2 border-[#cfc3b3] bg-white px-7 text-lg font-bold text-[#5f5549] transition hover:bg-[#f5f0e8] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  disabled={isUpdating || !editContent.trim()}
+                  className="min-h-14 rounded-2xl bg-[#205c4b] px-7 text-lg font-bold text-white shadow-md transition hover:bg-[#18493c] disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isUpdating ? "正在保存..." : "保存修改"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
       <FamilyNav />
     </main>
   );

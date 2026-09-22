@@ -81,6 +81,19 @@ function parseCreateMemoryBody(
   };
 }
 
+type UpdateMemoryBody = {
+  memoryId: string;
+  content: string;
+};
+
+type DeleteMemoryBody = {
+  memoryId: string;
+};
+
+type OwnedMemory = {
+  id: string;
+  patient_id: string;
+};
 async function createEmbedding(content: string): Promise<number[]> {
   const response = await fetch(SILICONFLOW_EMBEDDINGS_URL, {
     method: "POST",
@@ -179,6 +192,71 @@ async function extractMemoryMetadata(
         )
       : [],
   };
+}
+async function getAuthenticatedUser(
+  request: Request,
+  supabase: SupabaseClient,
+) {
+  const authorization = request.headers.get("authorization") ?? "";
+  const token = authorization.startsWith("Bearer ")
+    ? authorization.slice("Bearer ".length)
+    : "";
+
+  if (!token) {
+    return null;
+  }
+
+  const { data, error } = await supabase.auth.getUser(token);
+
+  if (error || !data.user) {
+    return null;
+  }
+
+  return data.user;
+}
+
+async function findOwnedMemory(
+  supabase: SupabaseClient,
+  memoryId: string,
+  userId: string,
+): Promise<OwnedMemory | null> {
+  const { data: memoryData, error: memoryError } = await supabase
+    .from("memories")
+    .select("id, patient_id")
+    .eq("id", memoryId)
+    .limit(1);
+
+  if (memoryError) {
+    throw new Error(`Supabase memory lookup failed: ${memoryError.message}`);
+  }
+
+  const memory = ((memoryData ?? []) as OwnedMemory[])[0];
+
+  if (!memory) {
+    return null;
+  }
+
+  const { data: patientData, error: patientError } = await supabase
+    .from("patients")
+    .select("id")
+    .eq("id", memory.patient_id)
+    .eq("owner_id", userId)
+    .limit(1);
+
+  if (patientError) {
+    throw new Error(`Supabase ownership check failed: ${patientError.message}`);
+  }
+
+  return (patientData ?? []).length > 0 ? memory : null;
+}
+
+function parseMemoryId(value: unknown): string | null {
+  if (!isRecord(value) || typeof value.memoryId !== "string") {
+    return null;
+  }
+
+  const memoryId = value.memoryId.trim();
+  return memoryId || null;
 }
 async function findExistingMemory(
   supabase: SupabaseClient,
@@ -289,6 +367,134 @@ export async function POST(request: Request): Promise<Response> {
 
     return Response.json(
       { error: "保存记忆失败，请稍后重试。" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function PUT(request: Request): Promise<Response> {
+  try {
+    const body = (await request.json()) as unknown;
+
+    if (
+      !isRecord(body) ||
+      typeof body.memoryId !== "string" ||
+      !body.memoryId.trim() ||
+      typeof body.content !== "string" ||
+      !body.content.trim()
+    ) {
+      return Response.json(
+        { error: "请求参数必须包含 memoryId 和 content。" },
+        { status: 400 },
+      );
+    }
+
+    const memoryId = body.memoryId.trim();
+    const content = body.content.trim();
+    const supabase = createSupabaseClient();
+    const user = await getAuthenticatedUser(request, supabase);
+
+    if (!user) {
+      return Response.json(
+        { error: "登录状态已失效，请重新登录。" },
+        { status: 401 },
+      );
+    }
+
+    const ownedMemory = await findOwnedMemory(
+      supabase,
+      memoryId,
+      user.id,
+    );
+
+    if (!ownedMemory) {
+      return Response.json(
+        { error: "无权编辑这条记忆。" },
+        { status: 403 },
+      );
+    }
+
+    const [metadata, embedding] = await Promise.all([
+      extractMemoryMetadata(content),
+      createEmbedding(content),
+    ]);
+    const { data, error } = await supabase
+      .from("memories")
+      .update({
+        content,
+        embedding,
+        emotion: metadata.emotion || null,
+        entities: metadata.entities,
+      })
+      .eq("id", memoryId)
+      .select("id, content, created_at, emotion, entities, source")
+      .single();
+
+    if (error) {
+      throw new Error(`Supabase memory update failed: ${error.message}`);
+    }
+
+    return Response.json({ memory: data as MemoryRow });
+  } catch (error) {
+    console.error("Memory PUT API error:", error);
+
+    return Response.json(
+      { error: "更新记忆失败，请稍后重试。" },
+      { status: 500 },
+    );
+  }
+}
+
+export async function DELETE(request: Request): Promise<Response> {
+  try {
+    const body = (await request.json()) as unknown;
+    const memoryId = parseMemoryId(body);
+
+    if (!memoryId) {
+      return Response.json(
+        { error: "请求参数必须包含 memoryId。" },
+        { status: 400 },
+      );
+    }
+
+    const supabase = createSupabaseClient();
+    const user = await getAuthenticatedUser(request, supabase);
+
+    if (!user) {
+      return Response.json(
+        { error: "登录状态已失效，请重新登录。" },
+        { status: 401 },
+      );
+    }
+
+    const ownedMemory = await findOwnedMemory(
+      supabase,
+      memoryId,
+      user.id,
+    );
+
+    if (!ownedMemory) {
+      return Response.json(
+        { error: "无权删除这条记忆。" },
+        { status: 403 },
+      );
+    }
+
+    const { error } = await supabase
+      .from("memories")
+      .delete()
+      .eq("id", memoryId);
+
+    if (error) {
+      throw new Error(`Supabase memory delete failed: ${error.message}`);
+    }
+
+    return Response.json({ success: true });
+  } catch (error) {
+    console.error("Memory DELETE API error:", error);
+
+    return Response.json(
+      { error: "删除记忆失败，请稍后重试。" },
       { status: 500 },
     );
   }

@@ -24,6 +24,16 @@ test("memory route extracts emotion and entities for family memories", () => {
   assert.match(routeSource, /source: "family"/);
 });
 
+test("memory route supports authenticated update and delete", () => {
+  assert.match(routeSource, /export async function PUT/);
+  assert.match(routeSource, /export async function DELETE/);
+  assert.match(routeSource, /getAuthenticatedUser/);
+  assert.match(routeSource, /findOwnedMemory/);
+  assert.match(routeSource, /owner_id/);
+  assert.match(routeSource, /extractMemoryMetadata\(content\)/);
+  assert.match(routeSource, /createEmbedding\(content\)/);
+});
+
 test("memory route checks duplicates before inserting", () => {
   assert.match(routeSource, /findExistingMemory/);
   assert.match(routeSource, /\.eq\("content", content\)/);
