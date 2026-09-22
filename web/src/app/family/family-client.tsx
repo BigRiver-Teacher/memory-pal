@@ -1,6 +1,7 @@
 "use client";
 
 import { createClient } from "@supabase/supabase-js";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -225,23 +226,43 @@ export default function FamilyClient({
   return (
     <main className="flex h-dvh flex-col overflow-hidden bg-[#f7f3ea] text-[#2d2924]">
       <header className="shrink-0 border-b border-[#dfd6c8] bg-[#fffdf8]/95 px-4 py-5 shadow-sm backdrop-blur sm:px-8 sm:py-6">
-        <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-4">
-          <div>
-            <p className="text-base font-medium text-[#7a6f61] sm:text-lg">
-              家属记忆管理{patientName ? ` · ${patientName}` : ""}
-            </p>
-            <h1 className="mt-1 text-4xl font-bold tracking-wide text-[#205c4b] sm:text-5xl">
-              忆伴 · 家属端
-            </h1>
+        <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
+          <div className="flex items-center justify-between gap-4">
+            <Link
+              href="/family/patients"
+              className="text-base font-bold text-[#205c4b] underline decoration-[#9f9384] underline-offset-4 sm:text-lg"
+            >
+              ← 返回患者管理
+            </Link>
+            <Link
+              href="/family/patients"
+              className="text-base font-bold text-[#9c6b3f] underline decoration-[#d5b18d] underline-offset-4 sm:text-lg"
+            >
+              切换患者
+            </Link>
           </div>
 
-          <time
-            dateTime={currentDateTime}
-            suppressHydrationWarning
-            className="max-w-[42%] text-right text-lg font-semibold leading-8 text-[#5f5549] sm:text-xl"
-          >
-            {currentDate}
-          </time>
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-base font-medium text-[#7a6f61] sm:text-lg">
+                忆伴 · 家属端
+              </p>
+              <h1 className="mt-1 text-4xl font-bold tracking-wide text-[#205c4b] sm:text-5xl">
+                {patientName || "正在加载患者..."}
+              </h1>
+              <p className="mt-2 text-lg font-medium text-[#5f5549]">
+                当前患者
+              </p>
+            </div>
+
+            <time
+              dateTime={currentDateTime}
+              suppressHydrationWarning
+              className="max-w-[42%] text-right text-base font-semibold leading-7 text-[#5f5549] sm:text-xl"
+            >
+              {currentDate}
+            </time>
+          </div>
         </div>
       </header>
 

@@ -25,7 +25,7 @@ test("patients page lists all owned patients and marks selection", () => {
   assert.ok(clientSource.includes("current_patient_id"));
   assert.ok(clientSource.includes("当前选中"));
   assert.ok(clientSource.includes("切换到此患者"));
-  assert.ok(clientSource.includes("window.location.reload()"));
+  assert.ok(clientSource.includes('router.push("/family")'));
   assert.ok(clientSource.includes('href="/family/bind"'));
   assert.ok(clientSource.includes("添加新患者"));
 });

@@ -124,7 +124,7 @@ export default function PatientsClient({
       "current_patient_id",
       patientId,
     );
-    window.location.reload();
+    router.push("/family");
   }
 
   return (
