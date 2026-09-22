@@ -22,28 +22,37 @@ const currentDateTime = now.toISOString().slice(0, 10);
 export default function PatientPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [message, setMessage] = useState("");
-  const [isSending, setIsSending] = useState(false);
+  const [isLoading, setIsSending] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [showTextInput, setShowTextInput] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const wasLoadingRef = useRef(false);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth",
     });
-  }, [messages, isSending]);
+  }, [messages, isLoading]);
 
   useEffect(() => {
-    if (!isSending) {
+    if (wasLoadingRef.current && !isLoading) {
       inputRef.current?.focus();
     }
-  }, [isSending]);
+
+    wasLoadingRef.current = isLoading;
+  }, [isLoading]);
+
+  useEffect(() => {
+    if (showTextInput) {
+      inputRef.current?.focus();
+    }
+  }, [showTextInput]);
 
   async function sendMessage() {
     const trimmedMessage = message.trim();
 
-    if (!trimmedMessage || isSending) {
+    if (!trimmedMessage || isLoading) {
       return;
     }
 
@@ -105,7 +114,7 @@ export default function PatientPage() {
     }
   }
 
-  const visibleMessages = isSending
+  const visibleMessages = isLoading
     ? [
         ...messages,
         {
@@ -232,10 +241,11 @@ export default function PatientPage() {
             切换文字输入
           </button>
 
-          {showTextInput && (
             <div
               id="text-input-panel"
-              className="flex w-full flex-col gap-3 sm:flex-row sm:items-stretch"
+              className={`${
+                showTextInput ? "flex" : "hidden"
+              } w-full flex-col gap-3 sm:flex-row sm:items-stretch`}
             >
               <label htmlFor="patient-message" className="sr-only">
                 输入消息
@@ -253,19 +263,17 @@ export default function PatientPage() {
                   }
                 }}
                 placeholder="想说什么，就写在这里..."
-                disabled={isSending}
                 className="min-h-[72px] flex-1 resize-none rounded-2xl border-2 border-[#cfc3b3] bg-white px-5 py-4 text-xl leading-8 text-[#2d2924] outline-none transition placeholder:text-[#9a8f81] focus:border-[#4f8f78] focus:ring-4 focus:ring-[#4f8f78]/20 disabled:cursor-not-allowed disabled:bg-[#f2eee7]"
               />
               <button
                 type="button"
                 onClick={() => void sendMessage()}
-                disabled={isSending || !message.trim()}
+                disabled={isLoading || !message.trim()}
                 className="min-h-14 rounded-2xl bg-[#4f8f78] px-7 text-lg font-bold text-white shadow-md transition hover:bg-[#3e7863] focus:outline-none focus:ring-4 focus:ring-[#4f8f78]/35 active:translate-y-px disabled:cursor-not-allowed disabled:bg-[#a8bdb4] sm:min-w-28"
               >
                 发送
               </button>
             </div>
-          )}
         </div>
       </footer>
     </main>

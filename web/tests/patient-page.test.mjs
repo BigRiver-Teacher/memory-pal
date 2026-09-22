@@ -33,6 +33,13 @@ test("patient page includes loading, error, reset and scroll behavior", () => {
   );
   assert.ok(pageSource.includes("ref={inputRef}"));
   assert.ok(pageSource.includes("inputRef.current?.focus()"));
+  assert.ok(pageSource.includes("wasLoadingRef.current"));
+  assert.ok(pageSource.includes("wasLoadingRef.current = isLoading"));
+  assert.ok(!pageSource.includes("disabled={isLoading}"));
+  assert.ok(!pageSource.includes("readOnly"));
+  assert.ok(
+    pageSource.includes('showTextInput ? "flex" : "hidden"'),
+  );
   assert.ok(pageSource.includes("h-dvh flex-col overflow-hidden"));
   assert.ok(pageSource.includes("min-h-0 flex-1 overflow-y-auto"));
 });
