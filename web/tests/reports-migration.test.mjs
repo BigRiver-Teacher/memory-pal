@@ -16,4 +16,5 @@ test("reports migration creates cache table and RLS policy", () => {
   assert.match(migrationSource, /enable row level security/);
   assert.match(migrationSource, /reports_owner_policy/);
   assert.match(migrationSource, /p\.owner_id = \(select auth\.uid\(\)\)/);
+  assert.match(migrationSource, /to service_role/);
 });

@@ -40,3 +40,7 @@ with check (
 grant select, insert, update, delete
 on public.reports
 to authenticated;
+
+grant select, insert, update, delete
+on public.reports
+to service_role;
