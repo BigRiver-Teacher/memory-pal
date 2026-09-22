@@ -57,12 +57,20 @@ test("patient page includes loading, error, reset and scroll behavior", () => {
   assert.ok(clientSource.includes("min-h-0 flex-1 overflow-y-auto"));
 });
 
-test("voice control remains visual only", () => {
+test("voice control uses browser SpeechRecognition", () => {
   const voiceButton = clientSource.slice(
     clientSource.indexOf('aria-label="按住说话"'),
     clientSource.indexOf("</button>", clientSource.indexOf('aria-label="按住说话"')),
   );
 
-  assert.ok(voiceButton.includes("按住说话"));
-  assert.ok(!voiceButton.includes("onClick"));
+  assert.ok(clientSource.includes("webkitSpeechRecognition"));
+  assert.ok(clientSource.includes('recognition.lang = "zh-CN"'));
+  assert.ok(clientSource.includes("recognition.start()"));
+  assert.ok(clientSource.includes("recognition.stop()"));
+  assert.ok(clientSource.includes("onPointerDown={handleVoicePointerDown}"));
+  assert.ok(clientSource.includes("onPointerUp={handleVoicePointerUp}"));
+  assert.ok(clientSource.includes("正在听..."));
+  assert.ok(clientSource.includes("没听清，请再说一次"));
+  assert.ok(clientSource.includes("您的浏览器不支持语音输入，请使用文字输入"));
+  assert.ok(voiceButton.includes("onPointerDown"));
 });

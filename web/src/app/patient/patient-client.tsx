@@ -3,7 +3,12 @@
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 
 type PatientClientProps = {
   supabaseUrl: string;
@@ -30,6 +35,60 @@ const currentDate = new Intl.DateTimeFormat("zh-CN", {
 }).format(now);
 const currentDateTime = now.toISOString().slice(0, 10);
 
+type SpeechRecognitionResultLike = {
+  0: {
+    transcript: string;
+  };
+};
+
+type SpeechRecognitionResultListLike = {
+  length: number;
+  [index: number]: SpeechRecognitionResultLike;
+};
+
+type SpeechRecognitionEventLike = {
+  results: SpeechRecognitionResultListLike;
+};
+
+type SpeechRecognitionErrorEventLike = {
+  error: string;
+};
+
+type SpeechRecognitionLike = {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  maxAlternatives: number;
+  onstart: (() => void) | null;
+  onend: (() => void) | null;
+  onerror: ((event: SpeechRecognitionErrorEventLike) => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+};
+
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+
+type SpeechWindow = Window & {
+  SpeechRecognition?: SpeechRecognitionConstructor;
+  webkitSpeechRecognition?: SpeechRecognitionConstructor;
+};
+
+function getSpeechRecognitionConstructor():
+  | SpeechRecognitionConstructor
+  | null {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const speechWindow = window as SpeechWindow;
+  return (
+    speechWindow.SpeechRecognition ??
+    speechWindow.webkitSpeechRecognition ??
+    null
+  );
+}
 export default function PatientClient({
   supabaseUrl,
   supabaseAnonKey,
@@ -55,6 +114,11 @@ export default function PatientClient({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const wasLoadingRef = useRef(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const voiceTranscriptRef = useRef("");
+  const voiceErrorRef = useRef(false);
+  const voiceTimeoutRef = useRef<number | null>(null);
+  const [isListening, setIsListening] = useState(false);
 
   useEffect(() => {
     let isActive = true;
@@ -280,8 +344,127 @@ export default function PatientClient({
     }
   }, [showTextInput]);
 
-  async function sendMessage() {
-    const trimmedMessage = message.trim();
+  function clearVoiceTimeout() {
+    if (voiceTimeoutRef.current !== null) {
+      window.clearTimeout(voiceTimeoutRef.current);
+      voiceTimeoutRef.current = null;
+    }
+  }
+
+  function stopVoiceRecognition() {
+    recognitionRef.current?.stop();
+  }
+
+  function startVoiceRecognition() {
+    const Recognition = getSpeechRecognitionConstructor();
+
+    if (!Recognition) {
+      setErrorMessage(
+        "您的浏览器不支持语音输入，请使用文字输入",
+      );
+      return;
+    }
+
+    if (isLoading) {
+      return;
+    }
+
+    recognitionRef.current?.abort();
+    clearVoiceTimeout();
+    voiceTranscriptRef.current = "";
+    voiceErrorRef.current = false;
+    setErrorMessage("");
+
+    const recognition = new Recognition();
+    recognition.lang = "zh-CN";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+      voiceTimeoutRef.current = window.setTimeout(() => {
+        voiceErrorRef.current = true;
+        setErrorMessage("没听清，请再说一次");
+        recognition.stop();
+      }, 10000);
+    };
+
+    recognition.onresult = (event) => {
+      const transcript = Array.from(
+        { length: event.results.length },
+        (_, index) => event.results[index][0]?.transcript ?? "",
+      ).join("");
+
+      voiceTranscriptRef.current = transcript;
+    };
+
+    recognition.onerror = () => {
+      voiceErrorRef.current = true;
+      setErrorMessage("没听清，请再说一次");
+    };
+
+    recognition.onend = () => {
+      clearVoiceTimeout();
+      setIsListening(false);
+      recognitionRef.current = null;
+
+      if (voiceErrorRef.current) {
+        return;
+      }
+
+      const transcript = voiceTranscriptRef.current.trim();
+
+      if (!transcript) {
+        setErrorMessage("没听清，请再说一次");
+        return;
+      }
+
+      setMessage(transcript);
+      void sendMessage(transcript);
+    };
+
+    recognitionRef.current = recognition;
+
+    try {
+      recognition.start();
+    } catch {
+      recognitionRef.current = null;
+      setIsListening(false);
+      setErrorMessage("没听清，请再说一次");
+    }
+  }
+
+  function handleVoicePointerDown(
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    startVoiceRecognition();
+  }
+
+  function handleVoicePointerUp(
+    event: ReactPointerEvent<HTMLButtonElement>,
+  ) {
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } else {
+      event.preventDefault();
+    }
+
+    stopVoiceRecognition();
+  }
+
+  useEffect(() => {
+    return () => {
+      clearVoiceTimeout();
+      voiceErrorRef.current = true;
+      recognitionRef.current?.abort();
+    };
+  }, []);
+
+  async function sendMessage(nextMessage?: string) {
+    const trimmedMessage = (nextMessage ?? message).trim();
 
     if (!patientId || isResolvingPatient || !trimmedMessage || isLoading) {
       return;
@@ -471,9 +654,22 @@ export default function PatientClient({
           <button
             type="button"
             aria-label="按住说话"
-            className="flex h-28 w-28 items-center justify-center rounded-full bg-[#205c4b] text-xl font-bold text-white shadow-lg transition hover:bg-[#18493c] focus:outline-none focus:ring-4 focus:ring-[#4f8f78]/35 active:translate-y-px sm:h-32 sm:w-32"
+            aria-pressed={isListening}
+            onPointerDown={handleVoicePointerDown}
+            onPointerUp={handleVoicePointerUp}
+            onPointerCancel={handleVoicePointerUp}
+            onPointerLeave={(event) => {
+              if (isListening) {
+                handleVoicePointerUp(event);
+              }
+            }}
+            className={`flex h-28 w-28 touch-none select-none items-center justify-center rounded-full text-xl font-bold text-white shadow-lg transition focus:outline-none focus:ring-4 focus:ring-[#4f8f78]/35 active:translate-y-px sm:h-32 sm:w-32 ${
+              isListening
+                ? "animate-pulse bg-[#a33a31] hover:bg-[#842d26]"
+                : "bg-[#205c4b] hover:bg-[#18493c]"
+            }`}
           >
-            按住说话
+            {isListening ? "正在听..." : "按住说话"}
           </button>
 
           <button
