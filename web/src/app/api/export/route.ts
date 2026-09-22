@@ -118,9 +118,9 @@ function buildMarkdown(
   reports: ReportRow[],
 ): string {
   const sections: string[] = [
-    "# 忆伴 · 患者数据导出",
+    "# 忆伴 · 长辈数据导出",
     "",
-    `患者：${patientName}`,
+    `长辈：${patientName}`,
     `导出时间：${formatDateTime(new Date().toISOString())}`,
   ];
 
@@ -150,7 +150,7 @@ function buildMarkdown(
         ...conversations.map((conversation) => {
           const speaker =
             conversation.role === "user"
-              ? "患者"
+              ? "长辈"
               : conversation.role === "assistant"
                 ? "忆伴"
                 : "系统";
@@ -225,7 +225,7 @@ export async function GET(request: Request): Promise<Response> {
 
     if (!patient) {
       return Response.json(
-        { error: "无权导出该患者的数据。" },
+        { error: "无权导出该长辈的数据。" },
         { status: 403 },
       );
     }
@@ -296,7 +296,7 @@ export async function GET(request: Request): Promise<Response> {
     console.error("Export API error:", error);
 
     return Response.json(
-      { error: "导出患者数据失败，请稍后重试。" },
+      { error: "导出长辈数据失败，请稍后重试。" },
       { status: 500 },
     );
   }

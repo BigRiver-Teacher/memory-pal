@@ -117,15 +117,15 @@ function buildSystemPrompt(memories: MemoryMatch[]): string {
   return (
     "你是一个温和、克制的陪伴助手。\n" +
     `当前时间是 ${currentDateTime}。\n\n` +
-    "以下是从患者记忆中检索到的内容：" +
+    "以下是从长辈记忆中检索到的内容：" +
     "\n" +
     `${memoryBlock}\n\n` +
     "请严格遵守以下要求：\n" +
-    "1. 用温和确认的语气回复患者。\n" +
-    "2. 如果患者问今天几号、星期几，直接根据“当前时间”回答，不要使用检索到的记忆。\n" +
+    "1. 用温和确认的语气回复长辈。\n" +
+    "2. 如果长辈问今天几号、星期几，直接根据“当前时间”回答，不要使用检索到的记忆。\n" +
     "最近对话只用于理解当前问题，不要主动复述历史。\n" +
     "3. 不得编造记忆中没有的信息，不得补充不存在的事实、动机、情感或当前行踪。\n" +
-    "4. 不得要求患者证明记忆或回答身份、时间类测试问题。\n" +
+    "4. 不得要求长辈证明记忆或回答身份、时间类测试问题。\n" +
     "5. 允许温和的引导式提问，例如“能跟我说说你们以前常做的事吗？”，" +
     "但禁止测试性提问，例如“您还记得我是谁吗？”“您知道今天几号吗？”。" +
     "每句回复最多只能包含一个问号。\n" +
@@ -248,7 +248,7 @@ function formatConversationContext(
 
   return conversationHistory
     .map((message) => {
-      const speaker = message.role === "user" ? "患者" : "忆伴";
+      const speaker = message.role === "user" ? "长辈" : "忆伴";
       return `${speaker}：${message.content}`;
     })
     .join("\n");
@@ -371,12 +371,12 @@ async function classifyPatientIntent(
     {
       role: "system",
       content:
-        "你负责判断患者话语的意图，并且只输出 json 对象。" +
+        "你负责判断长辈话语的意图，并且只输出 json 对象。" +
         '格式必须是 {"intent":"memory"}、{"intent":"story"}、' +
         '{"intent":"datetime"} 或 {"intent":"other"}。' +
-        "如果患者在确认一段记忆，输出 memory。" +
-        "如果患者在主动讲述过去经历、故事或生活片段，输出 story。" +
-        "如果患者在询问日期、星期、时间、节日日期或倒计时，输出 datetime。" +
+        "如果长辈在确认一段记忆，输出 memory。" +
+        "如果长辈在主动讲述过去经历、故事或生活片段，输出 story。" +
+        "如果长辈在询问日期、星期、时间、节日日期或倒计时，输出 datetime。" +
         "如果当前输入是省略句，要结合最近对话判断意图。" +
         "其他情况输出 other。" +
         `\n最近对话：\n${contextText}`,
@@ -415,7 +415,7 @@ async function generateDateTimeReply(
         `当前时间是 ${formatCurrentDateTime()}。` +
         "你正在直接回答时间、日期或节日相关问题。" +
         "请用温和、简短、口语化的方式回答，不超过 50 个字。" +
-        "不要检索或引用患者记忆。" +
+        "不要检索或引用长辈记忆。" +
         "最近对话只用于理解当前省略句，不要主动复述历史。" +
         "对于节日类问题，如果无法准确确认具体日期，" +
         "必须回答“这个我记不太清了，您可以问问家里人”，不要编造日期。",
@@ -436,7 +436,7 @@ async function extractMemoryAnchors(
     {
       role: "system",
       content:
-        "请从患者讲述中提取记忆锚点，并且只输出 json 对象。" +
+        "请从长辈讲述中提取记忆锚点，并且只输出 json 对象。" +
         '格式必须是 {"entities": [], "emotion": ""}。' +
         "entities 是人物、地点、事件、物品等关键词数组，emotion 是情绪词。",
     },

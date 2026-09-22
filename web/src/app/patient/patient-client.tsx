@@ -172,7 +172,7 @@ export default function PatientClient({
         setPatientName(patient.name);
       } catch {
         if (isActive) {
-          setErrorMessage("暂时无法读取患者信息，请稍后再试");
+          setErrorMessage("暂时无法读取长辈信息，请稍后再试");
         }
       } finally {
         if (isActive) {
@@ -246,7 +246,7 @@ export default function PatientClient({
         setPatientName(patient.name);
       } catch {
         if (isActive) {
-          setErrorMessage("暂时无法读取患者信息，请稍后再试");
+          setErrorMessage("暂时无法读取长辈信息，请稍后再试");
         }
       } finally {
         if (isActive) {
@@ -322,7 +322,7 @@ export default function PatientClient({
         setPatientName(patient.name);
       } catch {
         if (isActive) {
-          setErrorMessage("暂时无法读取患者信息，请稍后再试");
+          setErrorMessage("暂时无法读取长辈信息，请稍后再试");
         }
       } finally {
         if (isActive) {
@@ -558,7 +558,7 @@ export default function PatientClient({
                 今天
               </Link>
               <p className="text-base font-bold text-[#5f5549] sm:text-lg">
-                当前患者：{patientName || "正在加载..."}
+                当前长辈：{patientName || "正在加载..."}
               </p>
             </div>
           </div>

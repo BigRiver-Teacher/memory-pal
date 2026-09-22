@@ -37,7 +37,7 @@ test("settings page shows current patient and navigation entries", () => {
   assert.ok(clientSource.includes('href="/family/patients"'));
   assert.ok(clientSource.includes('href="/patient/bind"'));
   assert.ok(clientSource.includes("FamilyNav"));
-  assert.ok(clientSource.includes("导出患者数据"));
+  assert.ok(clientSource.includes("导出长辈数据"));
   assert.ok(clientSource.includes("new Blob"));
   assert.ok(clientSource.includes("text/markdown;charset=utf-8"));
   assert.ok(clientSource.includes("`忆伴_${safePatientName}_${getShanghaiDateKey()}.md`"));

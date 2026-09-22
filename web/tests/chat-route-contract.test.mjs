@@ -17,9 +17,9 @@ test("chat route defines the required POST contract", () => {
 
 test("chat route keeps the test_chat prompt constraints", () => {
   const requiredFragments = [
-    "用温和确认的语气回复患者",
+    "用温和确认的语气回复长辈",
     "不得编造记忆中没有的信息",
-    "不得要求患者证明记忆或回答身份、时间类测试问题",
+    "不得要求长辈证明记忆或回答身份、时间类测试问题",
     "允许温和的引导式提问",
     "禁止测试性提问",
     "每句回复最多只能包含一个问号",

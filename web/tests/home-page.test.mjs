@@ -25,7 +25,7 @@ test("home page shows phone and links to patient and family entry points", () =>
   assert.ok(clientSource.includes('email.split("@")[0]'));
   assert.ok(clientSource.includes('href="/patient/bind"'));
   assert.ok(clientSource.includes('href="/family/patients"'));
-  assert.ok(clientSource.includes("患者端"));
+  assert.ok(clientSource.includes("长辈端"));
   assert.ok(clientSource.includes("家属端"));
 });
 

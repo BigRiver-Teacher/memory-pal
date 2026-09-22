@@ -31,7 +31,7 @@ test("family bind form allows multiple patients and selects the new one", () => 
 });
 
 test("family bind form has required nickname and optional contact", () => {
-  assert.ok(formSource.includes("患者昵称"));
+  assert.ok(formSource.includes("长辈昵称"));
   assert.ok(formSource.includes("家属联系方式"));
   assert.ok(formSource.includes("required"));
   assert.ok(formSource.includes("选填"));

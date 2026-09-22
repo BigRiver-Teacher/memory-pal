@@ -97,7 +97,7 @@ export default function PatientBindClient({
         );
       } catch {
         if (isActive) {
-          setErrorMessage("暂时无法读取患者列表，请稍后再试");
+          setErrorMessage("暂时无法读取长辈列表，请稍后再试");
         }
       } finally {
         if (isActive) {
@@ -133,10 +133,10 @@ export default function PatientBindClient({
 
         <header className="rounded-[28px] border border-[#dfd6c8] bg-[#fffdf8] px-5 py-6 shadow-sm sm:px-8">
           <p className="text-lg font-semibold text-[#7a6f61]">
-            忆伴 · 患者端
+            忆伴 · 长辈端
           </p>
           <h1 className="mt-2 text-4xl font-bold text-[#205c4b] sm:text-5xl">
-            选择患者
+            选择长辈
           </h1>
           <p className="mt-3 text-lg leading-8 text-[#7a6f61]">
             选择后即可进入记忆陪伴对话。
@@ -145,7 +145,7 @@ export default function PatientBindClient({
 
         {isLoading && (
           <p className="rounded-3xl border border-[#dfd6c8] bg-white px-6 py-10 text-center text-xl text-[#7a6f61]">
-            正在读取患者列表...
+            正在读取长辈列表...
           </p>
         )}
 
@@ -163,13 +163,13 @@ export default function PatientBindClient({
           patients.length === 0 && (
             <section className="rounded-[28px] border border-dashed border-[#cfc3b3] bg-white/75 px-6 py-10 text-center">
               <p className="text-xl leading-9 text-[#7a6f61]">
-                请先在家属端绑定患者
+                请先在家属端绑定长辈
               </p>
               <Link
                 href="/family/bind"
                 className="mt-6 flex min-h-16 items-center justify-center rounded-2xl bg-[#205c4b] px-6 text-xl font-bold text-white shadow-md transition hover:bg-[#18493c]"
               >
-                去家属端绑定患者
+                去家属端绑定长辈
               </Link>
             </section>
           )}
@@ -210,7 +210,7 @@ export default function PatientBindClient({
                     onClick={() => selectPatient(patient.id)}
                     className="min-h-14 rounded-2xl bg-[#205c4b] px-6 text-lg font-bold text-white shadow-md transition hover:bg-[#18493c]"
                   >
-                    进入患者端
+                    进入长辈端
                   </button>
                 </div>
               </article>

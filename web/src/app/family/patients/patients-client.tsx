@@ -104,7 +104,7 @@ export default function PatientsClient({
         setCurrentPatientId(selectedPatientId);
       } catch {
         if (isActive) {
-          setErrorMessage("暂时无法读取患者列表，请稍后再试");
+          setErrorMessage("暂时无法读取长辈列表，请稍后再试");
         }
       } finally {
         if (isActive) {
@@ -137,7 +137,7 @@ export default function PatientsClient({
             忆伴 · 家属端
           </p>
           <h1 className="mt-1 text-4xl font-bold text-[#205c4b] sm:text-5xl">
-            患者管理
+            长辈管理
           </h1>
         </div>
       </header>
@@ -146,7 +146,7 @@ export default function PatientsClient({
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
           {isLoading && (
             <p className="rounded-3xl border border-[#dfd6c8] bg-white px-6 py-10 text-center text-xl text-[#7a6f61]">
-              正在加载患者列表...
+              正在加载长辈列表...
             </p>
           )}
 
@@ -163,7 +163,7 @@ export default function PatientsClient({
             !errorMessage &&
             patients.length === 0 && (
               <p className="rounded-3xl border border-dashed border-[#cfc3b3] bg-white/70 px-6 py-10 text-center text-xl leading-9 text-[#7a6f61]">
-                还没有绑定患者，点击下方按钮添加。
+                还没有绑定长辈，点击下方按钮添加。
               </p>
             )}
 
@@ -220,7 +220,7 @@ export default function PatientsClient({
                       disabled={isSelected}
                       className="min-h-14 rounded-2xl bg-[#205c4b] px-6 text-lg font-bold text-white shadow-md transition hover:bg-[#18493c] focus:outline-none focus:ring-4 focus:ring-[#4f8f78]/35 disabled:cursor-not-allowed disabled:bg-[#a8bdb4]"
                     >
-                      {isSelected ? "当前患者" : "切换到此患者"}
+                      {isSelected ? "当前长辈" : "切换到此长辈"}
                     </button>
                   </div>
                 </article>
@@ -234,7 +234,7 @@ export default function PatientsClient({
           href="/family/bind"
           className="mx-auto flex min-h-16 w-full max-w-4xl items-center justify-center rounded-2xl bg-[#9c6b3f] px-8 text-xl font-bold text-white shadow-lg transition hover:bg-[#825431] focus:outline-none focus:ring-4 focus:ring-[#9c6b3f]/35"
         >
-          添加新患者
+          添加新长辈
         </Link>
       </footer>
     </main>

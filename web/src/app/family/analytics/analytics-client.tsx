@@ -203,7 +203,7 @@ export default function AnalyticsClient({
             大屏统计
           </h1>
           <p className="mt-3 text-xl font-bold text-[#2d2924]">
-            当前患者：{patientName || "正在加载..."}
+            当前长辈：{patientName || "正在加载..."}
           </p>
         </header>
 
@@ -269,7 +269,7 @@ export default function AnalyticsClient({
                 提问次数变化
               </h2>
               <p className="mt-2 text-lg text-[#7a6f61]">
-                最近 7 天患者提问次数
+                最近 7 天长辈提问次数
               </p>
 
               <div className="mt-5 h-80 w-full">
@@ -410,7 +410,7 @@ export default function AnalyticsClient({
                 活跃时段
               </h2>
               <p className="mt-2 text-lg text-[#7a6f61]">
-                患者最常在什么时候提问
+                长辈最常在什么时候提问
               </p>
 
               {!analytics.sufficiency.activePeriods ? (

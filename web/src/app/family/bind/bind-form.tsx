@@ -67,7 +67,7 @@ export default function FamilyBindForm({
     }
 
     if (!trimmedName) {
-      setErrorMessage("请输入患者昵称");
+      setErrorMessage("请输入长辈昵称");
       return;
     }
 
@@ -121,10 +121,10 @@ export default function FamilyBindForm({
             忆伴 · 家属端
           </p>
           <h1 className="mt-2 text-4xl font-bold text-[#205c4b]">
-            添加患者
+            添加长辈
           </h1>
           <p className="mt-3 text-lg leading-8 text-[#7a6f61]">
-            可以添加多个患者，当前选中的患者会用于记忆管理。
+            可以添加多个长辈，当前选中的长辈会用于记忆管理。
           </p>
         </header>
 
@@ -145,7 +145,7 @@ export default function FamilyBindForm({
                 htmlFor="patient-name"
                 className="text-lg font-bold text-[#3f382f]"
               >
-                患者昵称
+                长辈昵称
                 <span className="ml-1 text-[#a33a31]">*</span>
               </label>
               <input

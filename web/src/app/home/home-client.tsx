@@ -109,11 +109,11 @@ export default function HomeClient({
                 进入陪伴对话
               </p>
               <h2 className="mt-3 text-4xl font-bold sm:text-5xl">
-                患者端
+                长辈端
               </h2>
             </div>
             <p className="mt-8 text-xl leading-9 text-[#e8fff5]">
-              选择绑定患者后，开始温和的记忆陪伴。
+              选择绑定长辈后，开始温和的记忆陪伴。
             </p>
           </Link>
 
@@ -130,7 +130,7 @@ export default function HomeClient({
               </h2>
             </div>
             <p className="mt-8 text-xl leading-9 text-[#fff4e9]">
-              添加记忆、查看患者今天的对话和家属建议。
+              添加记忆、查看长辈今天的对话和家属建议。
             </p>
           </Link>
         </section>

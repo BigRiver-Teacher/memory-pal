@@ -159,7 +159,7 @@ export default function ReportHistoryClient({
             日报历史
           </h1>
           <p className="mt-3 text-xl font-bold text-[#2d2924]">
-            当前患者：{patientName || "正在加载..."}
+            当前长辈：{patientName || "正在加载..."}
           </p>
           <p className="mt-2 text-lg text-[#7a6f61]">
             最近 30 天

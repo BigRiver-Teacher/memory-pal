@@ -24,8 +24,8 @@ test("family page uses current_patient_id with first-patient fallback", () => {
   assert.ok(clientSource.includes('router.replace("/family/bind")'));
   assert.ok(clientSource.includes("/api/memory?patientId="));
   assert.ok(clientSource.includes('href="/family/patients"'));
-  assert.ok(clientSource.includes("← 返回患者管理"));
-  assert.ok(clientSource.includes("切换患者"));
+  assert.ok(clientSource.includes("← 返回长辈管理"));
+  assert.ok(clientSource.includes("切换长辈"));
   assert.ok(clientSource.includes("patientName"));
   assert.ok(clientSource.includes("FamilyNav"));
 });
@@ -36,7 +36,7 @@ test("family page renders memory metadata and source labels", () => {
   assert.ok(clientSource.includes("未分类"));
   assert.ok(clientSource.includes("关联人物"));
   assert.ok(clientSource.includes("家属录入"));
-  assert.ok(clientSource.includes("患者自述"));
+  assert.ok(clientSource.includes("长辈自述"));
 });
 
 test("family page supports editing and deleting memories", () => {

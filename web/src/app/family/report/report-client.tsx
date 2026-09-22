@@ -231,7 +231,7 @@ export default function ReportClient({
               href="/family/patients"
               className="text-base font-bold text-[#205c4b] underline decoration-[#9f9384] underline-offset-4 sm:text-lg"
             >
-              ← 返回患者管理
+              ← 返回长辈管理
             </Link>
             <div className="flex items-center gap-4">
               <button
@@ -246,7 +246,7 @@ export default function ReportClient({
                 href="/family/patients"
                 className="text-base font-bold text-[#9c6b3f] underline decoration-[#d5b18d] underline-offset-4 sm:text-lg"
               >
-                切换患者
+                切换长辈
               </Link>
             </div>
           </div>
@@ -267,7 +267,7 @@ export default function ReportClient({
             记忆日报
           </h1>
           <p className="mt-3 text-xl font-bold text-[#2d2924]">
-            当前患者：{patientName || "正在加载..."}
+            当前长辈：{patientName || "正在加载..."}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-4">
             <p className="text-lg font-medium text-[#5f5549] sm:text-xl">
@@ -307,13 +307,13 @@ export default function ReportClient({
           <>
             {!hasTodayData && (
               <p className="rounded-3xl border border-dashed border-[#cfc3b3] bg-white/75 px-6 py-10 text-center text-xl leading-9 text-[#7a6f61]">
-                今天还没有对话记录，可以先陪患者聊聊熟悉的人和事。
+                今天还没有对话记录，可以先陪长辈聊聊熟悉的人和事。
               </p>
             )}
 
             <section className="rounded-[28px] border border-[#e4dbcf] bg-white p-5 shadow-sm sm:p-7">
               <h2 className="text-2xl font-bold text-[#205c4b] sm:text-3xl">
-                今天患者问了什么
+                今天长辈问了什么
               </h2>
 
               {report.questions.length === 0 ? (

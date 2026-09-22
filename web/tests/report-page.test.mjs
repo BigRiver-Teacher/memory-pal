@@ -34,7 +34,7 @@ test("report page resolves the current patient", () => {
 });
 
 test("report page contains all three report sections", () => {
-  assert.ok(clientSource.includes("今天患者问了什么"));
+  assert.ok(clientSource.includes("今天长辈问了什么"));
   assert.ok(clientSource.includes("哪些记忆被反复确认"));
   assert.ok(clientSource.includes("给家属的建议"));
   assert.ok(clientSource.includes("今天还没有对话记录"));
@@ -42,9 +42,9 @@ test("report page contains all three report sections", () => {
 
 test("report page has patient management entries and current nickname", () => {
   assert.ok(clientSource.includes('href="/family/patients"'));
-  assert.ok(clientSource.includes("← 返回患者管理"));
-  assert.ok(clientSource.includes("切换患者"));
-  assert.ok(clientSource.includes("当前患者："));
+  assert.ok(clientSource.includes("← 返回长辈管理"));
+  assert.ok(clientSource.includes("切换长辈"));
+  assert.ok(clientSource.includes("当前长辈："));
   assert.ok(clientSource.includes("patientName"));
 });
 

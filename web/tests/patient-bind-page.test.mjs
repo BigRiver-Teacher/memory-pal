@@ -31,7 +31,7 @@ test("patient bind page lists multiple patients and handles none", () => {
   assert.ok(clientSource.includes("patients.map"));
   assert.ok(clientSource.includes("selectPatient"));
   assert.ok(clientSource.includes('router.push("/patient")'));
-  assert.ok(clientSource.includes("请先在家属端绑定患者"));
+  assert.ok(clientSource.includes("请先在家属端绑定长辈"));
   assert.ok(clientSource.includes('href="/family/bind"'));
-  assert.ok(clientSource.includes("进入患者端"));
+  assert.ok(clientSource.includes("进入长辈端"));
 });

@@ -294,7 +294,7 @@ async function generateAdvice(
   confirmedMemories: ConfirmedMemory[],
 ): Promise<string> {
   if (questions.length === 0 && confirmedMemories.length === 0) {
-    return "今天还没有对话记录，可以先陪患者聊聊熟悉的人和事。";
+    return "今天还没有对话记录，可以先陪长辈聊聊熟悉的人和事。";
   }
 
   const messages: Array<{
@@ -304,9 +304,9 @@ async function generateAdvice(
     {
       role: "system",
       content:
-        "你是写给家属阅读的沟通建议助手。建议的对象是家属，不是患者。" +
+        "你是写给家属阅读的沟通建议助手。建议的对象是家属，不是长辈。" +
         "建议必须使用第三人称，绝对不能出现“您”“你”“妳”等第二人称。" +
-        "建议必须具体、可执行，尽量包含患者今天确认了什么、" +
+        "建议必须具体、可执行，尽量包含长辈今天确认了什么、" +
         "相关人物或事件，以及家属下次可以怎么做。" +
         "格式参考：“妈妈今天 7 次确认午饭内容，小芳每周日来看她。" +
         "建议下次探望时主动聊聊小芳最近的工作，帮她巩固这段记忆。”" +
@@ -516,7 +516,7 @@ export async function GET(request: Request): Promise<Response> {
         );
       } catch (error) {
         console.error("Report advice generation failed:", error);
-        advice = "今天可以陪患者聊聊她熟悉的人和事。";
+        advice = "今天可以陪长辈聊聊她熟悉的人和事。";
       }
     }
 

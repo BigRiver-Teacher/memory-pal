@@ -330,7 +330,7 @@ export default function SettingsClient({
 
             <section className="rounded-[28px] border border-[#e4dbcf] bg-white p-5 shadow-sm sm:p-7">
               <h2 className="text-2xl font-bold text-[#205c4b] sm:text-3xl">
-                当前患者
+                当前长辈
               </h2>
 
               {patient ? (
@@ -347,7 +347,7 @@ export default function SettingsClient({
                 </div>
               ) : (
                 <p className="mt-5 text-xl text-[#8b7f70]">
-                  尚未绑定患者
+                  尚未绑定长辈
                 </p>
               )}
 
@@ -355,7 +355,7 @@ export default function SettingsClient({
                 href="/family/patients"
                 className="mt-5 flex min-h-14 items-center justify-center rounded-2xl border-2 border-[#205c4b] bg-white px-6 text-xl font-bold text-[#205c4b] transition hover:bg-[#eef7f2]"
               >
-                管理患者
+                管理长辈
               </Link>
 
               <button
@@ -367,22 +367,22 @@ export default function SettingsClient({
                 disabled={!patient}
                 className="mt-4 flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#9c6b3f] px-6 text-xl font-bold text-white transition hover:bg-[#825431] disabled:cursor-not-allowed disabled:opacity-60"
               >
-                导出患者数据
+                导出长辈数据
               </button>
             </section>
 
             <section className="rounded-[28px] border border-[#e4dbcf] bg-white p-5 shadow-sm sm:p-7">
               <h2 className="text-2xl font-bold text-[#205c4b] sm:text-3xl">
-                患者端入口
+                长辈端入口
               </h2>
               <p className="mt-4 text-lg leading-8 text-[#7a6f61]">
-                帮患者打开这个页面，就可以开始对话
+                帮长辈打开这个页面，就可以开始对话
               </p>
               <Link
                 href="/patient/bind"
                 className="mt-5 flex min-h-16 items-center justify-center rounded-2xl bg-[#205c4b] px-6 text-xl font-bold text-white shadow-md transition hover:bg-[#18493c]"
               >
-                打开患者端对话页
+                打开长辈端对话页
               </Link>
             </section>
 
@@ -424,7 +424,7 @@ export default function SettingsClient({
               id="export-title"
               className="text-3xl font-bold text-[#205c4b]"
             >
-              导出患者数据
+              导出长辈数据
             </h2>
             <p className="mt-2 text-lg leading-8 text-[#7a6f61]">
               选择要导出的 Markdown 内容。

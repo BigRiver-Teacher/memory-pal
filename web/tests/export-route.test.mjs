@@ -16,7 +16,7 @@ test("export API validates user ownership and export type", () => {
 });
 
 test("export API builds markdown sections", () => {
-  assert.match(routeSource, /# 忆伴 · 患者数据导出/);
+  assert.match(routeSource, /# 忆伴 · 长辈数据导出/);
   assert.match(routeSource, /## 记忆列表/);
   assert.match(routeSource, /## 对话记录/);
   assert.match(routeSource, /## 日报记录/);

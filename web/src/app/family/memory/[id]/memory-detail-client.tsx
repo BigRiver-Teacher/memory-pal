@@ -257,7 +257,7 @@ export default function MemoryDetailClient({
   const emotion = memory?.emotion?.trim() || "未分类";
   const entities = memory?.entities ?? [];
   const sourceLabel =
-    memory?.source === "family" ? "家属录入" : "患者自述";
+    memory?.source === "family" ? "家属录入" : "长辈自述";
 
   return (
     <main className="flex min-h-dvh flex-col bg-[#f7f3ea] text-[#2d2924]">

@@ -365,13 +365,13 @@ export default function FamilyClient({
               href="/family/patients"
               className="text-base font-bold text-[#205c4b] underline decoration-[#9f9384] underline-offset-4 sm:text-lg"
             >
-              ← 返回患者管理
+              ← 返回长辈管理
             </Link>
             <Link
               href="/family/patients"
               className="text-base font-bold text-[#9c6b3f] underline decoration-[#d5b18d] underline-offset-4 sm:text-lg"
             >
-              切换患者
+              切换长辈
             </Link>
           </div>
 
@@ -381,10 +381,10 @@ export default function FamilyClient({
                 忆伴 · 家属端
               </p>
               <h1 className="mt-1 text-4xl font-bold tracking-wide text-[#205c4b] sm:text-5xl">
-                {patientName || "正在加载患者..."}
+                {patientName || "正在加载长辈..."}
               </h1>
               <p className="mt-2 text-lg font-medium text-[#5f5549]">
-                当前患者
+                当前长辈
               </p>
             </div>
 
@@ -400,7 +400,7 @@ export default function FamilyClient({
       </header>
 
       <section
-        aria-label="患者记忆列表"
+        aria-label="长辈记忆列表"
         className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8"
       >
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
@@ -442,7 +442,7 @@ export default function FamilyClient({
               const sourceLabel =
                 memory.source === "family"
                   ? "家属录入"
-                  : "患者自述";
+                  : "长辈自述";
 
               return (
                 <article
@@ -560,7 +560,7 @@ export default function FamilyClient({
               添加记忆
             </h2>
             <p className="mt-2 text-lg leading-8 text-[#7a6f61]">
-              写下一段想帮患者记住的事情。
+              写下一段想帮长辈记住的事情。
             </p>
 
             <form
