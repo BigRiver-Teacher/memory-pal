@@ -123,6 +123,7 @@ function buildSystemPrompt(memories: MemoryMatch[]): string {
     "请严格遵守以下要求：\n" +
     "1. 用温和确认的语气回复患者。\n" +
     "2. 如果患者问今天几号、星期几，直接根据“当前时间”回答，不要使用检索到的记忆。\n" +
+    "最近对话只用于理解当前问题，不要主动复述历史。\n" +
     "3. 不得编造记忆中没有的信息，不得补充不存在的事实、动机、情感或当前行踪。\n" +
     "4. 不得要求患者证明记忆或回答身份、时间类测试问题。\n" +
     "5. 允许温和的引导式提问，例如“能跟我说说你们以前常做的事吗？”，" +
@@ -205,6 +206,68 @@ async function createEmbedding(
   return embedding;
 }
 
+type ConversationHistoryRow = {
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+};
+
+async function getRecentConversationContext(
+  supabase: SupabaseClient,
+  patientId: string,
+): Promise<ChatMessage[]> {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("role, content, created_at")
+    .eq("patient_id", patientId)
+    .in("role", ["user", "assistant"])
+    .order("created_at", { ascending: false })
+    .limit(6);
+
+  if (error) {
+    throw new Error(
+      `Supabase conversation context query failed: ${error.message}`,
+    );
+  }
+
+  return ((data ?? []) as ConversationHistoryRow[])
+    .slice()
+    .reverse()
+    .map((conversation) => ({
+      role: conversation.role,
+      content: conversation.content,
+    }));
+}
+
+function formatConversationContext(
+  conversationHistory: ChatMessage[],
+): string {
+  if (conversationHistory.length === 0) {
+    return "无";
+  }
+
+  return conversationHistory
+    .map((message) => {
+      const speaker = message.role === "user" ? "患者" : "忆伴";
+      return `${speaker}：${message.content}`;
+    })
+    .join("\n");
+}
+
+function contextSuggestsDateTime(
+  message: string,
+  conversationHistory: ChatMessage[],
+): boolean {
+  if (message.trim().length > 8) {
+    return false;
+  }
+
+  return conversationHistory
+    .slice(-4)
+    .some((historyMessage) =>
+      isDateTimeQuestion(historyMessage.content),
+    );
+}
 async function retrieveMemories(
   supabase: SupabaseClient,
   patientId: string,
@@ -301,7 +364,9 @@ async function requestDeepSeekJson(
 async function classifyPatientIntent(
   apiKey: string,
   message: string,
+  conversationHistory: ChatMessage[],
 ): Promise<"memory" | "story" | "datetime" | "other"> {
+  const contextText = formatConversationContext(conversationHistory);
   const result = await requestDeepSeekJson(apiKey, [
     {
       role: "system",
@@ -312,7 +377,9 @@ async function classifyPatientIntent(
         "如果患者在确认一段记忆，输出 memory。" +
         "如果患者在主动讲述过去经历、故事或生活片段，输出 story。" +
         "如果患者在询问日期、星期、时间、节日日期或倒计时，输出 datetime。" +
-        "其他情况输出 other。",
+        "如果当前输入是省略句，要结合最近对话判断意图。" +
+        "其他情况输出 other。" +
+        `\n最近对话：\n${contextText}`,
     },
     {
       role: "user",
@@ -330,12 +397,16 @@ async function classifyPatientIntent(
     return result.intent;
   }
 
-  return isDateTimeQuestion(message) ? "datetime" : "other";
+  return isDateTimeQuestion(message) ||
+    contextSuggestsDateTime(message, conversationHistory)
+    ? "datetime"
+    : "other";
 }
 
 async function generateDateTimeReply(
   apiKey: string,
   message: string,
+  conversationHistory: ChatMessage[],
 ): Promise<string> {
   return requestDeepSeekReply(apiKey, [
     {
@@ -345,9 +416,11 @@ async function generateDateTimeReply(
         "你正在直接回答时间、日期或节日相关问题。" +
         "请用温和、简短、口语化的方式回答，不超过 50 个字。" +
         "不要检索或引用患者记忆。" +
+        "最近对话只用于理解当前省略句，不要主动复述历史。" +
         "对于节日类问题，如果无法准确确认具体日期，" +
         "必须回答“这个我记不太清了，您可以问问家里人”，不要编造日期。",
     },
+    ...conversationHistory,
     {
       role: "user",
       content: message,
@@ -433,12 +506,14 @@ async function generateReply(
   apiKey: string,
   patientMessage: string,
   memories: MemoryMatch[],
+  conversationHistory: ChatMessage[],
 ): Promise<string> {
   const messages: ChatMessage[] = [
     {
       role: "system",
       content: buildSystemPrompt(memories),
     },
+    ...conversationHistory,
     {
       role: "user",
       content: patientMessage,
@@ -533,18 +608,26 @@ export async function POST(request: Request): Promise<Response> {
     );
 
     const isTestMode = isTestModeEnabled();
+    const conversationHistory = await getRecentConversationContext(
+      supabase,
+      body.patientId,
+    );
     const classifiedIntent = await classifyPatientIntent(
       deepseekApiKey,
       body.message,
+      conversationHistory,
     );
-    const intent = isDateTimeQuestion(body.message)
-      ? "datetime"
-      : classifiedIntent;
+    const intent =
+      isDateTimeQuestion(body.message) ||
+      contextSuggestsDateTime(body.message, conversationHistory)
+        ? "datetime"
+        : classifiedIntent;
 
     if (intent === "datetime") {
       const reply = await generateDateTimeReply(
         deepseekApiKey,
         body.message,
+        conversationHistory,
       );
 
       if (!isTestMode) {
@@ -592,6 +675,7 @@ export async function POST(request: Request): Promise<Response> {
             deepseekApiKey,
             body.message,
             memories,
+            conversationHistory,
           )
         : FALLBACK_REPLY;
 

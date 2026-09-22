@@ -45,3 +45,22 @@ test("chat route keeps story extraction and storage", () => {
   assert.match(routeSource, /source: "patient"/);
   assert.match(routeSource, /response_format: \{ type: "json_object" \}/);
 });
+
+test("chat route loads and orders recent conversation context", () => {
+  assert.match(routeSource, /getRecentConversationContext/);
+  assert.match(routeSource, /\.order\("created_at", \{ ascending: false \}\)/);
+  assert.match(routeSource, /\.limit\(6\)/);
+  assert.match(routeSource, /\.reverse\(\)/);
+  assert.match(routeSource, /\.in\("role", \["user", "assistant"\]\)/);
+});
+
+test("chat route uses context for intent and reply messages", () => {
+  assert.match(routeSource, /contextSuggestsDateTime/);
+  assert.match(routeSource, /conversationHistory/);
+  assert.match(routeSource, /\.\.\.conversationHistory/);
+  assert.match(routeSource, /最近对话只用于理解当前问题，不要主动复述历史/);
+  assert.match(
+    routeSource,
+    /generateReply\([\s\S]*conversationHistory/,
+  );
+});
