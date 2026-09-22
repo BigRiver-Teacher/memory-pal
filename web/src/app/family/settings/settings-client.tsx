@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import FamilyNav from "@/components/FamilyNav";
-import { clearAllReportCaches } from "@/lib/report-cache";
+import {
+  clearAllReportCaches,
+  getShanghaiDateKey,
+} from "@/lib/report-cache";
 
 type SettingsClientProps = {
   supabaseUrl: string;
@@ -57,6 +60,12 @@ export default function SettingsClient({
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [message, setMessage] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [isExportOpen, setIsExportOpen] = useState(false);
+  const [exportType, setExportType] = useState<
+    "memory" | "conversation" | "report" | "all"
+  >("all");
+  const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState("");
 
   useEffect(() => {
     let isActive = true;
@@ -175,6 +184,61 @@ export default function SettingsClient({
     }
   }
 
+  async function exportPatientData() {
+    if (!patient || isExporting) {
+      return;
+    }
+
+    setIsExporting(true);
+    setExportError("");
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+
+      if (!accessToken) {
+        router.replace("/login");
+        return;
+      }
+
+      const query = new URLSearchParams({
+        patientId: patient.id,
+        type: exportType,
+      });
+      const response = await fetch(`/api/export?${query.toString()}`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error("Export request failed");
+      }
+
+      const markdown = await response.text();
+      const blob = new Blob([markdown], {
+        type: "text/markdown;charset=utf-8",
+      });
+      const downloadUrl = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      const safePatientName = patient.name.replace(
+        /[\\/:*?"<>|]/g,
+        "_",
+      );
+
+      link.href = downloadUrl;
+      link.download = `忆伴_${safePatientName}_${getShanghaiDateKey()}.md`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(downloadUrl);
+      setIsExportOpen(false);
+    } catch {
+      setExportError("导出失败，请稍后再试");
+    } finally {
+      setIsExporting(false);
+    }
+  }
   async function signOut() {
     if (isSigningOut) {
       return;
@@ -293,6 +357,18 @@ export default function SettingsClient({
               >
                 管理患者
               </Link>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setExportError("");
+                  setIsExportOpen(true);
+                }}
+                disabled={!patient}
+                className="mt-4 flex min-h-14 w-full items-center justify-center rounded-2xl bg-[#9c6b3f] px-6 text-xl font-bold text-white transition hover:bg-[#825431] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                导出患者数据
+              </button>
             </section>
 
             <section className="rounded-[28px] border border-[#e4dbcf] bg-white p-5 shadow-sm sm:p-7">
@@ -336,6 +412,90 @@ export default function SettingsClient({
         )}
       </div>
 
+      {isExportOpen && patient && (
+        <div className="fixed inset-0 z-50 flex items-end bg-black/35 p-4 backdrop-blur-sm sm:items-center sm:justify-center">
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="export-title"
+            className="w-full max-w-xl rounded-[28px] border border-[#e4dbcf] bg-[#fffdf8] p-5 shadow-2xl sm:p-7"
+          >
+            <h2
+              id="export-title"
+              className="text-3xl font-bold text-[#205c4b]"
+            >
+              导出患者数据
+            </h2>
+            <p className="mt-2 text-lg leading-8 text-[#7a6f61]">
+              选择要导出的 Markdown 内容。
+            </p>
+
+            <div className="mt-5 grid gap-3">
+              {[
+                ["memory", "记忆列表"],
+                ["conversation", "对话记录"],
+                ["report", "日报记录"],
+                ["all", "全部导出"],
+              ].map(([value, label]) => (
+                <label
+                  key={value}
+                  className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border-2 px-4 text-lg font-bold transition ${
+                    exportType === value
+                      ? "border-[#4f8f78] bg-[#eef7f2] text-[#205c4b]"
+                      : "border-[#e4dbcf] bg-white text-[#5f5549]"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="export-type"
+                    value={value}
+                    checked={exportType === value}
+                    onChange={() =>
+                      setExportType(
+                        value as
+                          | "memory"
+                          | "conversation"
+                          | "report"
+                          | "all",
+                      )
+                    }
+                    className="h-5 w-5 accent-[#205c4b]"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+
+            {exportError && (
+              <p
+                role="alert"
+                className="mt-4 rounded-2xl bg-[#fff0ef] px-4 py-3 text-center text-base font-bold text-[#a33a31]"
+              >
+                {exportError}
+              </p>
+            )}
+
+            <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => setIsExportOpen(false)}
+                disabled={isExporting}
+                className="min-h-14 rounded-2xl border-2 border-[#cfc3b3] bg-white px-7 text-lg font-bold text-[#5f5549]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={() => void exportPatientData()}
+                disabled={isExporting}
+                className="min-h-14 rounded-2xl bg-[#205c4b] px-7 text-lg font-bold text-white disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {isExporting ? "正在导出..." : "下载 Markdown"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <FamilyNav />
     </main>
   );
