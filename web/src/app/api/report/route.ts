@@ -10,6 +10,7 @@ const SILICONFLOW_EMBEDDINGS_URL =
 const EMBEDDING_MODEL = "BAAI/bge-m3";
 const EXPECTED_DIMENSION = 1024;
 const MIN_SIMILARITY = 0.5;
+const MAX_ADVICE_ATTEMPTS = 2;
 
 type ConversationRow = {
   id: string;
@@ -224,15 +225,17 @@ async function findConfirmedMemories(
     );
 }
 
-async function generateAdvice(
-  apiKey: string,
-  questions: ConversationRow[],
-  confirmedMemories: ConfirmedMemory[],
-): Promise<string> {
-  if (questions.length === 0 && confirmedMemories.length === 0) {
-    return "今天还没有对话记录，可以先陪患者聊聊熟悉的人和事。";
-  }
+function containsSecondPerson(text: string): boolean {
+  return /您|你|妳/.test(text);
+}
 
+async function requestAdvice(
+  apiKey: string,
+  messages: Array<{
+    role: "system" | "user" | "assistant";
+    content: string;
+  }>,
+): Promise<string> {
   const response = await fetch(DEEPSEEK_API_URL, {
     method: "POST",
     headers: {
@@ -241,27 +244,7 @@ async function generateAdvice(
     },
     body: JSON.stringify({
       model: DEEPSEEK_MODEL,
-      messages: [
-        {
-          role: "system",
-          content:
-            "你是家属沟通建议助手。请只输出一句温和、具体、容易执行的中文建议，" +
-            "不超过 80 个字。只能依据用户提供的数据，不要编造信息。",
-        },
-        {
-          role: "user",
-          content: JSON.stringify({
-            questions: questions.map((question) => ({
-              content: question.content,
-              created_at: question.created_at,
-            })),
-            confirmed_memories: confirmedMemories.map((memory) => ({
-              content: memory.content,
-              count: memory.count,
-            })),
-          }),
-        },
-      ],
+      messages,
       temperature: 0.4,
     }),
   });
@@ -282,6 +265,73 @@ async function generateAdvice(
   }
 
   return advice.replace(/\s+/g, " ");
+}
+
+async function generateAdvice(
+  apiKey: string,
+  questions: ConversationRow[],
+  confirmedMemories: ConfirmedMemory[],
+): Promise<string> {
+  if (questions.length === 0 && confirmedMemories.length === 0) {
+    return "今天还没有对话记录，可以先陪患者聊聊熟悉的人和事。";
+  }
+
+  const messages: Array<{
+    role: "system" | "user" | "assistant";
+    content: string;
+  }> = [
+    {
+      role: "system",
+      content:
+        "你是写给家属阅读的沟通建议助手。建议的对象是家属，不是患者。" +
+        "建议必须使用第三人称，绝对不能出现“您”“你”“妳”等第二人称。" +
+        "建议必须具体、可执行，尽量包含患者今天确认了什么、" +
+        "相关人物或事件，以及家属下次可以怎么做。" +
+        "格式参考：“妈妈今天 7 次确认午饭内容，小芳每周日来看她。" +
+        "建议下次探望时主动聊聊小芳最近的工作，帮她巩固这段记忆。”" +
+        "只输出一段简短的中文建议，不超过 100 个字，不要解释。" +
+        "只能依据用户提供的数据，不要编造。",
+    },
+    {
+      role: "user",
+      content: JSON.stringify({
+        questions: questions.map((question) => ({
+          content: question.content,
+          created_at: question.created_at,
+        })),
+        confirmed_memories: confirmedMemories.map((memory) => ({
+          content: memory.content,
+          count: memory.count,
+        })),
+      }),
+    },
+  ];
+
+  for (let attempt = 0; attempt < MAX_ADVICE_ATTEMPTS; attempt += 1) {
+    const advice = await requestAdvice(apiKey, messages);
+
+    if (!containsSecondPerson(advice)) {
+      return advice;
+    }
+
+    if (attempt + 1 < MAX_ADVICE_ATTEMPTS) {
+      messages.push(
+        {
+          role: "assistant",
+          content: advice,
+        },
+        {
+          role: "user",
+          content:
+            "刚才的建议出现了第二人称。请重写为写给家属看的第三人称建议，" +
+            "禁止出现“您”“你”“妳”，并保持具体、可执行。" +
+            "只输出建议本身。",
+        },
+      );
+    }
+  }
+
+  throw new Error("DeepSeek advice used second-person language");
 }
 
 export async function GET(request: Request): Promise<Response> {
