@@ -10,8 +10,13 @@ const settingsUrl = new URL(
   "../src/app/family/settings/page.tsx",
   import.meta.url,
 );
+const settingsClientUrl = new URL(
+  "../src/app/family/settings/settings-client.tsx",
+  import.meta.url,
+);
 const navSource = await readFile(navUrl, "utf8");
 const settingsSource = await readFile(settingsUrl, "utf8");
+const settingsClientSource = await readFile(settingsClientUrl, "utf8");
 
 test("family navigation has memory, report and settings links", () => {
   assert.ok(navSource.includes('href: "/family"'));
@@ -21,7 +26,7 @@ test("family navigation has memory, report and settings links", () => {
   assert.ok(navSource.includes('aria-current={isActive ? "page" : undefined}'));
 });
 
-test("settings page is a placeholder with family navigation", () => {
-  assert.ok(settingsSource.includes("设置页开发中"));
-  assert.ok(settingsSource.includes("FamilyNav"));
+test("settings page uses the full settings client with family navigation", () => {
+  assert.ok(settingsSource.includes("SettingsClient"));
+  assert.ok(settingsClientSource.includes("FamilyNav"));
 });
