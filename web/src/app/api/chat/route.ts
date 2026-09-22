@@ -12,6 +12,7 @@ const EXPECTED_DIMENSION = 1024;
 
 const MAX_REPLY_LENGTH = 50;
 const MAX_REPLY_ATTEMPTS = 3;
+const MIN_SIMILARITY = 0.5;
 const FALLBACK_REPLY =
   "我不太记得这件事，您可以跟我多说说吗？";
 
@@ -188,14 +189,18 @@ async function retrieveMemories(
   const { data, error } = await supabase.rpc("match_memories", {
     p_patient_id: patientId,
     p_query_embedding: queryEmbedding,
-    p_match_count: 2,
+    p_match_count: 5,
   });
 
   if (error) {
     throw new Error(`Supabase match_memories failed: ${error.message}`);
   }
 
-  return (data ?? []) as MemoryMatch[];
+  return ((data ?? []) as MemoryMatch[]).filter(
+    (memory) =>
+      typeof memory.similarity === "number" &&
+      memory.similarity >= MIN_SIMILARITY,
+  );
 }
 
 async function requestDeepSeekReply(

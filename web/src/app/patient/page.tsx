@@ -26,13 +26,19 @@ export default function PatientPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const [showTextInput, setShowTextInput] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({
       behavior: "smooth",
-      block: "end",
     });
   }, [messages, isSending]);
+
+  useEffect(() => {
+    if (!isSending) {
+      inputRef.current?.focus();
+    }
+  }, [isSending]);
 
   async function sendMessage() {
     const trimmedMessage = message.trim();
@@ -111,7 +117,7 @@ export default function PatientPage() {
     : messages;
 
   return (
-    <main className="flex min-h-dvh flex-col bg-[#f7f3ea] text-[#2d2924]">
+    <main className="flex h-dvh flex-col overflow-hidden bg-[#f7f3ea] text-[#2d2924]">
       <header className="border-b border-[#dfd6c8] bg-[#fffdf8]/95 px-4 py-5 shadow-sm backdrop-blur sm:px-8 sm:py-6">
         <div className="mx-auto flex w-full max-w-4xl items-center justify-between gap-4">
           <div>
@@ -135,7 +141,7 @@ export default function PatientPage() {
 
       <section
         aria-label="对话记录"
-        className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8"
+        className="min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8"
       >
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-7">
           {visibleMessages.length === 0 && (
@@ -193,11 +199,11 @@ export default function PatientPage() {
             );
           })}
 
-          <div ref={messagesEndRef} />
+          <div ref={messagesEndRef} aria-hidden="true" />
         </div>
       </section>
 
-      <footer className="sticky bottom-0 border-t border-[#dfd6c8] bg-[#fffdf8]/95 px-4 py-5 shadow-[0_-8px_24px_rgba(72,58,42,0.08)] backdrop-blur sm:px-8">
+      <footer className="shrink-0 border-t border-[#dfd6c8] bg-[#fffdf8]/95 px-4 py-5 shadow-[0_-8px_24px_rgba(72,58,42,0.08)] backdrop-blur sm:px-8">
         <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4">
           {errorMessage && (
             <p
@@ -236,6 +242,7 @@ export default function PatientPage() {
               </label>
               <textarea
                 id="patient-message"
+                ref={inputRef}
                 rows={2}
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}

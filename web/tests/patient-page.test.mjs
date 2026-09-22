@@ -26,6 +26,15 @@ test("patient page includes loading, error, reset and scroll behavior", () => {
   assert.ok(pageSource.includes('setMessage("")'));
   assert.ok(pageSource.includes("scrollIntoView"));
   assert.ok(pageSource.includes("messagesEndRef"));
+  assert.ok(
+    pageSource.includes(
+      "const inputRef = useRef<HTMLTextAreaElement>(null)",
+    ),
+  );
+  assert.ok(pageSource.includes("ref={inputRef}"));
+  assert.ok(pageSource.includes("inputRef.current?.focus()"));
+  assert.ok(pageSource.includes("h-dvh flex-col overflow-hidden"));
+  assert.ok(pageSource.includes("min-h-0 flex-1 overflow-y-auto"));
 });
 
 test("voice control remains visual only", () => {

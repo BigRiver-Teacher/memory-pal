@@ -42,7 +42,9 @@ test("chat route keeps the test_chat prompt constraints", () => {
 });
 
 test("chat route uses two memories and supports test mode", () => {
-  assert.match(routeSource, /p_match_count:\s*2/);
+  assert.match(routeSource, /MIN_SIMILARITY = 0\.5/);
+  assert.match(routeSource, /p_match_count:\s*5/);
+  assert.match(routeSource, /similarity >= MIN_SIMILARITY/);
   assert.match(routeSource, /process\.env\.TEST_MODE/);
   assert.match(
     routeSource,
