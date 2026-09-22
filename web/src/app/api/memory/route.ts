@@ -81,14 +81,7 @@ function parseCreateMemoryBody(
   };
 }
 
-type UpdateMemoryBody = {
-  memoryId: string;
-  content: string;
-};
 
-type DeleteMemoryBody = {
-  memoryId: string;
-};
 
 type OwnedMemory = {
   id: string;
