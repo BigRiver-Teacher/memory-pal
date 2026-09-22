@@ -2,6 +2,9 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 export const runtime = "nodejs";
 
+const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
+const DEEPSEEK_MODEL = "deepseek-chat";
+
 const SILICONFLOW_EMBEDDINGS_URL =
   "https://api.siliconflow.cn/v1/embeddings";
 const EMBEDDING_MODEL = "BAAI/bge-m3";
@@ -11,6 +14,14 @@ type MemoryRow = {
   id: string;
   content: string;
   created_at: string;
+  emotion: string | null;
+  entities: string[] | null;
+  source: string | null;
+};
+
+type MemoryMetadata = {
+  emotion: string;
+  entities: string[];
 };
 
 type CreateMemoryBody = {
@@ -105,6 +116,70 @@ async function createEmbedding(content: string): Promise<number[]> {
   return embedding;
 }
 
+async function extractMemoryMetadata(
+  content: string,
+): Promise<MemoryMetadata> {
+  const response = await fetch(DEEPSEEK_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${getRequiredEnv("DEEPSEEK_API_KEY")}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: DEEPSEEK_MODEL,
+      messages: [
+        {
+          role: "system",
+          content:
+            "请从家属录入的记忆中提取情绪和关联人物，" +
+            "并且只输出 json 对象。" +
+            '格式必须是 {"emotion":"","entities":[]}。' +
+            "emotion 是简短情绪词；entities 是人物、地点、物品等关键词数组。",
+        },
+        {
+          role: "user",
+          content,
+        },
+      ],
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `DeepSeek metadata request failed with status ${response.status}`,
+    );
+  }
+
+  const result = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const responseContent =
+    result.choices?.[0]?.message?.content?.trim();
+
+  if (!responseContent) {
+    throw new Error("Invalid DeepSeek metadata response");
+  }
+
+  const parsed = JSON.parse(responseContent) as unknown;
+
+  if (!isRecord(parsed)) {
+    return { emotion: "", entities: [] };
+  }
+
+  return {
+    emotion:
+      typeof parsed.emotion === "string"
+        ? parsed.emotion.trim()
+        : "",
+    entities: Array.isArray(parsed.entities)
+      ? parsed.entities.filter(
+          (entity): entity is string => typeof entity === "string",
+        )
+      : [],
+  };
+}
 async function findExistingMemory(
   supabase: SupabaseClient,
   patientId: string,
@@ -112,7 +187,7 @@ async function findExistingMemory(
 ): Promise<MemoryRow | null> {
   const { data, error } = await supabase
     .from("memories")
-    .select("id, content, created_at")
+    .select("id, content, created_at, emotion, entities, source")
     .eq("patient_id", patientId)
     .eq("content", content)
     .limit(1);
@@ -140,7 +215,7 @@ export async function GET(request: Request): Promise<Response> {
     const supabase = createSupabaseClient();
     const { data, error } = await supabase
       .from("memories")
-      .select("id, content, created_at")
+      .select("id, content, created_at, emotion, entities, source")
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false });
 
@@ -186,6 +261,7 @@ export async function POST(request: Request): Promise<Response> {
       });
     }
 
+    const metadata = await extractMemoryMetadata(body.content);
     const embedding = await createEmbedding(body.content);
     const { data, error } = await supabase
       .from("memories")
@@ -193,8 +269,11 @@ export async function POST(request: Request): Promise<Response> {
         patient_id: body.patientId,
         content: body.content,
         embedding,
+        emotion: metadata.emotion || null,
+        entities: metadata.entities,
+        source: "family",
       })
-      .select("id, content, created_at")
+      .select("id, content, created_at, emotion, entities, source")
       .single();
 
     if (error) {

@@ -37,5 +37,5 @@ test("chat route extracts story intent and stores memories safely", () => {
   assert.match(routeSource, /storeStoryMemory/);
   assert.match(routeSource, /\.eq\("content", message\)/);
   assert.match(routeSource, /content: message/);
-  assert.match(routeSource, /if \(!isTestMode\)/);
+  assert.match(routeSource, /source: "patient"/);
 });

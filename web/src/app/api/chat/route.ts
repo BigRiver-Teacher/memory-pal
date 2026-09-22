@@ -362,6 +362,7 @@ async function storeStoryMemory(
   patientId: string,
   message: string,
   embedding: number[],
+  metadata: { entities: string[]; emotion: string },
 ): Promise<void> {
   const { data, error: selectError } = await supabase
     .from("memories")
@@ -386,6 +387,9 @@ async function storeStoryMemory(
       patient_id: patientId,
       content: message,
       embedding,
+      emotion: metadata.emotion || null,
+      entities: metadata.entities,
+      source: "patient",
     });
 
   if (insertError) {
@@ -509,7 +513,10 @@ export async function POST(request: Request): Promise<Response> {
     );
 
     if (intent === "story") {
-      await extractMemoryAnchors(deepseekApiKey, body.message);
+      const metadata = await extractMemoryAnchors(
+        deepseekApiKey,
+        body.message,
+      );
 
       if (!isTestMode) {
         await storeStoryMemory(
@@ -517,6 +524,7 @@ export async function POST(request: Request): Promise<Response> {
           body.patientId,
           body.message,
           queryEmbedding,
+          metadata,
         );
       }
     }

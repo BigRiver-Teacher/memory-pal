@@ -20,6 +20,15 @@ test("family page loads and saves memories for the test patient", () => {
   assert.ok(pageSource.includes("content: trimmedContent"));
 });
 
+test("family page renders memory metadata and source labels", () => {
+  assert.ok(pageSource.includes("emotion"));
+  assert.ok(pageSource.includes("entities"));
+  assert.ok(pageSource.includes("未分类"));
+  assert.ok(pageSource.includes("关联人物"));
+  assert.ok(pageSource.includes("家属录入"));
+  assert.ok(pageSource.includes("患者自述"));
+});
+
 test("family page renders large memory cards and add dialog", () => {
   assert.ok(pageSource.includes("忆伴 · 家属端"));
   assert.ok(pageSource.includes("添加记忆"));

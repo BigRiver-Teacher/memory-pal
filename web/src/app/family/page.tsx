@@ -8,6 +8,9 @@ type MemoryRow = {
   id: string;
   content: string;
   created_at: string;
+  emotion: string | null;
+  entities: string[] | null;
+  source: string | null;
 };
 
 const now = new Date();
@@ -195,22 +198,63 @@ export default function FamilyPage() {
 
           {!isLoading &&
             !loadError &&
-            memories.map((memory) => (
-              <article
-                key={memory.id}
-                className="rounded-3xl border border-[#e4dbcf] bg-white p-5 shadow-sm sm:p-6"
-              >
-                <p className="text-xl leading-9 text-[#2d2924] sm:text-2xl">
-                  {memory.content}
-                </p>
-                <time
-                  dateTime={memory.created_at}
-                  className="mt-4 block text-base font-medium text-[#8b7f70] sm:text-lg"
+            memories.map((memory) => {
+              const emotion = memory.emotion?.trim() || "未分类";
+              const entities = memory.entities ?? [];
+              const sourceLabel =
+                memory.source === "family"
+                  ? "家属录入"
+                  : "患者自述";
+
+              return (
+                <article
+                  key={memory.id}
+                  className="rounded-3xl border border-[#e4dbcf] bg-white p-5 shadow-sm sm:p-6"
                 >
-                  {formatCreatedAt(memory.created_at)}
-                </time>
-              </article>
-            ))}
+                  <p className="text-xl leading-9 text-[#2d2924] sm:text-2xl">
+                    {memory.content}
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <span className="rounded-full bg-[#fff3d8] px-3 py-1 text-base font-semibold text-[#8a5a16]">
+                      情绪：{emotion}
+                    </span>
+                    <span className="rounded-full bg-[#e8f3ee] px-3 py-1 text-base font-semibold text-[#205c4b]">
+                      {sourceLabel}
+                    </span>
+                  </div>
+
+                  <div className="mt-4">
+                    <p className="text-base font-semibold text-[#6f6457]">
+                      关联人物
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {entities.length > 0 ? (
+                        entities.map((entity) => (
+                          <span
+                            key={entity}
+                            className="rounded-full bg-[#edf2fa] px-3 py-1 text-base font-semibold text-[#355c8a]"
+                          >
+                            {entity}
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-base text-[#9a8f81]">
+                          未关联人物
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <time
+                    dateTime={memory.created_at}
+                    className="mt-4 block text-base font-medium text-[#8b7f70] sm:text-lg"
+                  >
+                    {formatCreatedAt(memory.created_at)}
+                  </time>
+                </article>
+              );
+            })}
         </div>
       </section>
 

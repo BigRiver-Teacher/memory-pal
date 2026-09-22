@@ -16,6 +16,14 @@ test("memory route supports GET and POST with server-side credentials", () => {
   assert.match(routeSource, /createEmbedding/);
 });
 
+test("memory route extracts emotion and entities for family memories", () => {
+  assert.match(routeSource, /extractMemoryMetadata/);
+  assert.match(routeSource, /response_format: \{ type: "json_object" \}/);
+  assert.match(routeSource, /emotion: metadata\.emotion \|\| null/);
+  assert.match(routeSource, /entities: metadata\.entities/);
+  assert.match(routeSource, /source: "family"/);
+});
+
 test("memory route checks duplicates before inserting", () => {
   assert.match(routeSource, /findExistingMemory/);
   assert.match(routeSource, /\.eq\("content", content\)/);
