@@ -41,8 +41,8 @@ class ToneScriptTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 1)
         output.assert_called_once_with(test_tone.MISSING_API_KEY_MESSAGE)
 
-    def test_generates_reply_with_required_context_and_constraints(self):
-        reply = "您先别着急，我们先喝口热茶，慢慢等一会儿，好吗？"
+    def test_generates_emotion_and_memory_reply_without_speculation(self):
+        reply = "您想他了，我们聊聊以前开心的事，好吗？"
         with (
             patch.dict(os.environ, {"DEEPSEEK_API_KEY": "test-secret-key"}, clear=True),
             patch(
@@ -59,17 +59,21 @@ class ToneScriptTests(unittest.TestCase):
 
         self.assertEqual(payload["messages"][1]["content"], test_tone.PATIENT_MESSAGE)
         self.assertIn(test_tone.MEMORY, system_prompt)
-        self.assertIn("安抚", system_prompt)
-        self.assertIn("转移话题", system_prompt)
+        self.assertIn("禁止对任何不在场的人或事", system_prompt)
+        self.assertIn("当前状态", system_prompt)
+        self.assertIn("他可能在做xx", system_prompt)
+        self.assertIn("他应该xx", system_prompt)
+        self.assertIn("认可患者的情感", system_prompt)
+        self.assertIn("转向回忆", system_prompt)
         self.assertIn(str(test_tone.MAX_REPLY_LENGTH), system_prompt)
-        for word in test_tone.FORBIDDEN_WORDS:
+        for word in test_tone.FORBIDDEN_WORDS + test_tone.SPECULATION_WORDS:
             self.assertIn(word, system_prompt)
         self.assertEqual(request.get_header("Authorization"), "Bearer test-secret-key")
         output.assert_called_once_with(reply)
         self.assertNotIn("test-secret-key", str(output.call_args.args))
 
     def test_retries_when_reply_contains_forbidden_word(self):
-        valid_reply = "您先别着急，我们先喝口热茶，慢慢等一会儿，好吗？"
+        valid_reply = "您想他了，我们聊聊以前开心的事，好吗？"
         with (
             patch.dict(os.environ, {"DEEPSEEK_API_KEY": "test-secret-key"}, clear=True),
             patch(
@@ -85,6 +89,28 @@ class ToneScriptTests(unittest.TestCase):
 
         self.assertEqual(urlopen.call_count, 2)
         output.assert_called_once_with(valid_reply)
+
+    def test_retries_when_reply_speculates_about_current_state(self):
+        valid_reply = "您想他了，我们聊聊以前开心的事，好吗？"
+        with (
+            patch.dict(os.environ, {"DEEPSEEK_API_KEY": "test-secret-key"}, clear=True),
+            patch(
+                "test_tone.urllib.request.urlopen",
+                side_effect=[
+                    FakeResponse("他可能在家歇着呢。"),
+                    FakeResponse(valid_reply),
+                ],
+            ) as urlopen,
+            patch("builtins.print") as output,
+        ):
+            test_tone.main()
+
+        self.assertEqual(urlopen.call_count, 2)
+        output.assert_called_once_with(valid_reply)
+
+    def test_rejects_reply_without_memory_transition(self):
+        error = test_tone.get_reply_validation_error("您想他了，先喝口热茶吧。")
+        self.assertEqual(error, "回复没有自然转向回忆")
 
 
 if __name__ == "__main__":
