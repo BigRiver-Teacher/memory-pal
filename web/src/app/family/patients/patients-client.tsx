@@ -174,7 +174,16 @@ export default function PatientsClient({
               return (
                 <article
                   key={patient.id}
-                  className={`rounded-3xl border bg-white p-5 shadow-sm sm:p-6 ${
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => switchPatient(patient.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      switchPatient(patient.id);
+                    }
+                  }}
+                  className={`cursor-pointer rounded-3xl border bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-[#4f8f78]/25 sm:p-6 ${
                     isSelected
                       ? "border-[#4f8f78] ring-2 ring-[#4f8f78]/20"
                       : "border-[#e4dbcf]"
@@ -202,7 +211,10 @@ export default function PatientsClient({
 
                     <button
                       type="button"
-                      onClick={() => switchPatient(patient.id)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        switchPatient(patient.id);
+                      }}
                       disabled={isSelected}
                       className="min-h-14 rounded-2xl bg-[#205c4b] px-6 text-lg font-bold text-white shadow-md transition hover:bg-[#18493c] focus:outline-none focus:ring-4 focus:ring-[#4f8f78]/35 disabled:cursor-not-allowed disabled:bg-[#a8bdb4]"
                     >
