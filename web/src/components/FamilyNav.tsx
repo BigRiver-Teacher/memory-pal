@@ -15,6 +15,11 @@ const navItems = [
     icon: "报",
   },
   {
+    href: "/family/analytics",
+    label: "分析",
+    icon: "析",
+  },
+  {
     href: "/family/settings",
     label: "设置",
     icon: "设",
@@ -29,7 +34,7 @@ export default function FamilyNav() {
       aria-label="家属端导航"
       className="sticky bottom-0 z-40 mt-auto shrink-0 border-t border-[#d8cfc2] bg-[#fffdf8]/95 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 shadow-[0_-8px_24px_rgba(72,58,42,0.10)] backdrop-blur"
     >
-      <div className="mx-auto grid w-full max-w-xl grid-cols-3 gap-2">
+      <div className="mx-auto grid w-full max-w-xl grid-cols-4 gap-2">
         {navItems.map((item) => {
           const isActive =
             item.href === "/family"

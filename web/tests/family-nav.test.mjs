@@ -21,7 +21,9 @@ const settingsClientSource = await readFile(settingsClientUrl, "utf8");
 test("family navigation has memory, report and settings links", () => {
   assert.ok(navSource.includes('href: "/family"'));
   assert.ok(navSource.includes('href: "/family/report"'));
+  assert.ok(navSource.includes('href: "/family/analytics"'));
   assert.ok(navSource.includes('href: "/family/settings"'));
+  assert.ok(navSource.includes("grid-cols-4"));
   assert.ok(navSource.includes("usePathname"));
   assert.ok(navSource.includes("prefetch"));
   assert.ok(navSource.includes("<Link"));
