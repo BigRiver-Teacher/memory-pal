@@ -88,25 +88,49 @@ function parseChatRequestBody(value: unknown): ChatRequestBody | null {
   };
 }
 
+function formatCurrentDateTime(): string {
+  return new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    weekday: "long",
+  }).format(new Date());
+}
+
+function isCurrentDateTimeQuestion(message: string): boolean {
+  return (
+    /(今天|明天|昨天|现在).*(几号|星期几|周几|几点|时间)/.test(
+      message,
+    ) ||
+    /(几号|星期几|周几)/.test(message)
+  );
+}
+
 function buildSystemPrompt(memories: MemoryMatch[]): string {
-  const memoryBlock = memories
-    .map((memory) => `- ${memory.content}`)
-    .join("\n");
+  const currentDateTime = formatCurrentDateTime();
+  const memoryBlock =
+    memories.length > 0
+      ? memories.map((memory) => `- ${memory.content}`).join("\n")
+      : "没有检索到相关记忆。";
 
   return (
     "你是一个温和、克制的陪伴助手。\n" +
-    "以下是从患者记忆中检索到的内容，回复时只能依据这些内容：\n" +
+    `当前时间是 ${currentDateTime}。\n\n` +
+    "以下是从患者记忆中检索到的内容：" +
+    "\n" +
     `${memoryBlock}\n\n` +
     "请严格遵守以下要求：\n" +
     "1. 用温和确认的语气回复患者。\n" +
-    "2. 不得编造记忆中没有的信息，不得补充不存在的事实、动机、情感或当前行踪。\n" +
-    "3. 不得要求患者证明记忆或回答身份、时间类测试问题。\n" +
-    "4. 允许温和的引导式提问，例如“能跟我说说你们以前常做的事吗？”，" +
+    "2. 如果患者问今天几号、星期几，直接根据“当前时间”回答，不要使用检索到的记忆。\n" +
+    "3. 不得编造记忆中没有的信息，不得补充不存在的事实、动机、情感或当前行踪。\n" +
+    "4. 不得要求患者证明记忆或回答身份、时间类测试问题。\n" +
+    "5. 允许温和的引导式提问，例如“能跟我说说你们以前常做的事吗？”，" +
     "但禁止测试性提问，例如“您还记得我是谁吗？”“您知道今天几号吗？”。" +
     "每句回复最多只能包含一个问号。\n" +
-    "5. 不得出现“过世”“去世”“走了”等词。\n" +
-    "6. 不得使用“可能”“应该”“大概”“也许”“或许”等推测词。\n" +
-    `7. 回复不能超过 ${MAX_REPLY_LENGTH} 个字。\n` +
+    "6. 不得出现“过世”“去世”“走了”等词。\n" +
+    "7. 不得使用“可能”“应该”“大概”“也许”“或许”等推测词。\n" +
+    `8. 回复不能超过 ${MAX_REPLY_LENGTH} 个字。\n` +
     "只输出最终回复，不要解释。"
   );
 }
@@ -238,6 +262,138 @@ async function requestDeepSeekReply(
   return content;
 }
 
+async function requestDeepSeekJson(
+  apiKey: string,
+  messages: ChatMessage[],
+): Promise<unknown> {
+  const response = await fetch(DEEPSEEK_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: DEEPSEEK_MODEL,
+      messages,
+      temperature: 0.1,
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `DeepSeek JSON request failed with status ${response.status}`,
+    );
+  }
+
+  const result = (await response.json()) as {
+    choices?: Array<{ message?: { content?: string } }>;
+  };
+  const content = result.choices?.[0]?.message?.content?.trim();
+
+  if (!content) {
+    throw new Error("Invalid DeepSeek JSON response");
+  }
+
+  return JSON.parse(content) as unknown;
+}
+
+async function classifyPatientIntent(
+  apiKey: string,
+  message: string,
+): Promise<"question" | "story"> {
+  const result = await requestDeepSeekJson(apiKey, [
+    {
+      role: "system",
+      content:
+        "你负责判断患者话语的意图，并且只输出 json 对象。" +
+        '格式必须是 {"intent":"question"} 或 {"intent":"story"}。' +
+        "如果患者在询问事实、确认记忆或提出疑问，输出 question。" +
+        "如果患者在主动讲述过去经历、故事或生活片段，输出 story。",
+    },
+    {
+      role: "user",
+      content: message,
+    },
+  ]);
+
+  if (isRecord(result) && result.intent === "story") {
+    return "story";
+  }
+
+  return "question";
+}
+
+async function extractMemoryAnchors(
+  apiKey: string,
+  message: string,
+): Promise<{ entities: string[]; emotion: string }> {
+  const result = await requestDeepSeekJson(apiKey, [
+    {
+      role: "system",
+      content:
+        "请从患者讲述中提取记忆锚点，并且只输出 json 对象。" +
+        '格式必须是 {"entities": [], "emotion": ""}。' +
+        "entities 是人物、地点、事件、物品等关键词数组，emotion 是情绪词。",
+    },
+    {
+      role: "user",
+      content: message,
+    },
+  ]);
+
+  if (!isRecord(result)) {
+    return { entities: [], emotion: "" };
+  }
+
+  const entities = Array.isArray(result.entities)
+    ? result.entities.filter(
+        (entity): entity is string => typeof entity === "string",
+      )
+    : [];
+  const emotion =
+    typeof result.emotion === "string" ? result.emotion : "";
+
+  return { entities, emotion };
+}
+
+async function storeStoryMemory(
+  supabase: SupabaseClient,
+  patientId: string,
+  message: string,
+  embedding: number[],
+): Promise<void> {
+  const { data, error: selectError } = await supabase
+    .from("memories")
+    .select("id")
+    .eq("patient_id", patientId)
+    .eq("content", message)
+    .limit(1);
+
+  if (selectError) {
+    throw new Error(
+      `Supabase memory lookup failed: ${selectError.message}`,
+    );
+  }
+
+  if (data && data.length > 0) {
+    return;
+  }
+
+  const { error: insertError } = await supabase
+    .from("memories")
+    .insert({
+      patient_id: patientId,
+      content: message,
+      embedding,
+    });
+
+  if (insertError) {
+    throw new Error(
+      `Supabase memory insert failed: ${insertError.message}`,
+    );
+  }
+}
 async function generateReply(
   apiKey: string,
   patientMessage: string,
@@ -341,26 +497,52 @@ export async function POST(request: Request): Promise<Response> {
       },
     );
 
+    const isTestMode = isTestModeEnabled();
+    const intent = await classifyPatientIntent(
+      deepseekApiKey,
+      body.message,
+    );
+
     const queryEmbedding = await createEmbedding(
       body.message,
       siliconflowApiKey,
     );
+
+    if (intent === "story") {
+      await extractMemoryAnchors(deepseekApiKey, body.message);
+
+      if (!isTestMode) {
+        await storeStoryMemory(
+          supabase,
+          body.patientId,
+          body.message,
+          queryEmbedding,
+        );
+      }
+    }
+
     const memories = await retrieveMemories(
       supabase,
       body.patientId,
       queryEmbedding,
     );
+    const asksForCurrentDateTime = isCurrentDateTimeQuestion(
+      body.message,
+    );
+    const memoriesForPrompt = asksForCurrentDateTime
+      ? []
+      : memories;
 
     const reply =
-      memories.length === 0
-        ? FALLBACK_REPLY
-        : await generateReply(
+      asksForCurrentDateTime || memoriesForPrompt.length > 0
+        ? await generateReply(
             deepseekApiKey,
             body.message,
-            memories,
-          );
+            memoriesForPrompt,
+          )
+        : FALLBACK_REPLY;
 
-    if (!isTestModeEnabled()) {
+    if (!isTestMode) {
       await saveConversation(
         supabase,
         body.patientId,
