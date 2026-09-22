@@ -23,6 +23,10 @@ test("report route counts matching memories and generates advice", () => {
   assert.match(routeSource, /counts\.set/);
   assert.match(routeSource, /generateAdvice/);
   assert.match(routeSource, /今天还没有对话记录/);
+  assert.match(routeSource, /getCachedAdvice/);
+  assert.match(routeSource, /storeReportAdvice/);
+  assert.match(routeSource, /\.from\("reports"\)/);
+  assert.match(routeSource, /report_date/);
   assert.match(routeSource, /建议必须使用第三人称/);
   assert.match(routeSource, /containsSecondPerson/);
   assert.match(routeSource, /MAX_ADVICE_ATTEMPTS/);

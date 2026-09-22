@@ -92,6 +92,7 @@ function getShanghaiDateParts(date: Date): {
 function getTodayRange(): {
   start: string;
   end: string;
+  reportDate: string;
   dateLabel: string;
 } {
   const now = new Date();
@@ -102,6 +103,7 @@ function getTodayRange(): {
   return {
     start: start.toISOString(),
     end: end.toISOString(),
+    reportDate: `${year}-${month}-${day}`,
     dateLabel: new Intl.DateTimeFormat("zh-CN", {
       timeZone: "Asia/Shanghai",
       year: "numeric",
@@ -334,6 +336,64 @@ async function generateAdvice(
   throw new Error("DeepSeek advice used second-person language");
 }
 
+function isMissingReportsTable(error: {
+  code?: string;
+} | null): boolean {
+  return error?.code === "PGRST205" || error?.code === "42P01";
+}
+
+async function getCachedAdvice(
+  supabase: SupabaseClient,
+  patientId: string,
+  reportDate: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("reports")
+    .select("advice")
+    .eq("patient_id", patientId)
+    .eq("report_date", reportDate)
+    .limit(1);
+
+  if (error) {
+    if (isMissingReportsTable(error)) {
+      return null;
+    }
+
+    throw new Error(`Supabase report cache read failed: ${error.message}`);
+  }
+
+  return ((data ?? []) as Array<{ advice: string }>)[0]?.advice ?? null;
+}
+
+async function storeReportAdvice(
+  supabase: SupabaseClient,
+  patientId: string,
+  reportDate: string,
+  advice: string,
+): Promise<string> {
+  const { error } = await supabase.from("reports").insert({
+    patient_id: patientId,
+    report_date: reportDate,
+    advice,
+  });
+
+  if (!error) {
+    return advice;
+  }
+
+  if (isMissingReportsTable(error)) {
+    return advice;
+  }
+
+  if (error.code === "23505") {
+    return (
+      (await getCachedAdvice(supabase, patientId, reportDate)) ??
+      advice
+    );
+  }
+
+  throw new Error(`Supabase report cache write failed: ${error.message}`);
+}
 export async function GET(request: Request): Promise<Response> {
   try {
     const patientId = new URL(request.url).searchParams
@@ -352,7 +412,12 @@ export async function GET(request: Request): Promise<Response> {
     );
     const deepseekApiKey = getRequiredEnv("DEEPSEEK_API_KEY");
     const supabase = createSupabaseClient();
-    const { start, end, dateLabel } = getTodayRange();
+    const { start, end, reportDate, dateLabel } = getTodayRange();
+    const cachedAdvice = await getCachedAdvice(
+      supabase,
+      patientId,
+      reportDate,
+    );
 
     const { data: questionData, error: questionError } =
       await supabase
@@ -393,15 +458,25 @@ export async function GET(request: Request): Promise<Response> {
 
     let advice: string;
 
-    try {
-      advice = await generateAdvice(
-        deepseekApiKey,
-        questions,
-        confirmedMemories,
-      );
-    } catch (error) {
-      console.error("Report advice generation failed:", error);
-      advice = "今天可以陪患者聊聊她熟悉的人和事。";
+    if (cachedAdvice) {
+      advice = cachedAdvice;
+    } else {
+      try {
+        const generatedAdvice = await generateAdvice(
+          deepseekApiKey,
+          questions,
+          confirmedMemories,
+        );
+        advice = await storeReportAdvice(
+          supabase,
+          patientId,
+          reportDate,
+          generatedAdvice,
+        );
+      } catch (error) {
+        console.error("Report advice generation failed:", error);
+        advice = "今天可以陪患者聊聊她熟悉的人和事。";
+      }
     }
 
     return Response.json({
