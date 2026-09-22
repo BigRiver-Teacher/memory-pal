@@ -126,49 +126,83 @@ class ChatScriptTests(unittest.TestCase):
             "请在 Windows 环境变量中配置 DEEPSEEK_API_KEY"
         )
 
-    def test_reply_validation_rejects_question_speculation_and_length(self):
+    def test_reply_validation_switches_strategy(self):
         self.assertTrue(
             test_chat.is_acceptable_reply(
-                "您中午吃了红烧肉，是女儿送来的。"
-            )
-        )
-        self.assertTrue(
-            test_chat.is_acceptable_reply("您中午吃了吗？")
-        )
-        self.assertTrue(
-            test_chat.is_acceptable_reply("能说说今天吃了什么吗?")
-        )
-        self.assertFalse(
-            test_chat.is_acceptable_reply(
-                "您吃了吗？还记得吗？"
+                "您中午吃了红烧肉，是女儿送来的。",
+                test_chat.STATEMENT_CONFIRMATION,
             )
         )
         self.assertFalse(
-            test_chat.is_acceptable_reply("您可能吃过午饭。")
+            test_chat.is_acceptable_reply(
+                "您中午吃了吗？",
+                test_chat.STATEMENT_CONFIRMATION,
+            )
+        )
+        self.assertTrue(
+            test_chat.is_acceptable_reply(
+                "您想女儿了，能跟我说说以前开心的事吗？",
+                test_chat.EMOTION_VALIDATION,
+            )
         )
         self.assertFalse(
-            test_chat.is_acceptable_reply("好" * 51)
+            test_chat.is_acceptable_reply(
+                "您想女儿了，还记得吗？能说说吗？",
+                test_chat.EMOTION_VALIDATION,
+            )
+        )
+        self.assertFalse(
+            test_chat.is_acceptable_reply(
+                "您想女儿了，您还记得我是谁吗？",
+                test_chat.EMOTION_VALIDATION,
+            )
+        )
+        self.assertFalse(
+            test_chat.is_acceptable_reply(
+                "您可能吃过午饭。",
+                test_chat.STATEMENT_CONFIRMATION,
+            )
+        )
+        self.assertFalse(
+            test_chat.is_acceptable_reply(
+                "好" * 51,
+                test_chat.STATEMENT_CONFIRMATION,
+            )
         )
 
-    def test_system_prompt_contains_memories_and_tone_constraints(self):
+    def test_build_system_prompt_switches_by_scenario(self):
         memories = [
             {"content": test_chat.MEMORY_TEXTS[0]},
             {"content": test_chat.MEMORY_TEXTS[1]},
         ]
 
-        prompt = test_chat.build_system_prompt(memories)
+        statement_prompt = test_chat.build_system_prompt(
+            memories,
+            test_chat.PATIENT_INPUT,
+            test_chat.STATEMENT_CONFIRMATION,
+        )
+        emotion_prompt = test_chat.build_system_prompt(
+            memories,
+            test_chat.SECOND_PATIENT_INPUT,
+            test_chat.EMOTION_VALIDATION,
+        )
 
         for memory in memories:
-            self.assertIn(memory["content"], prompt)
-        self.assertIn("温和确认", prompt)
-        self.assertIn("不得编造", prompt)
-        self.assertIn("不得追问", prompt)
-        self.assertIn("允许温和的引导式提问", prompt)
-        self.assertIn("禁止测试性提问", prompt)
-        self.assertIn("每句回复最多只能包含一个问号", prompt)
-        self.assertIn("您还记得我是谁吗？", prompt)
-        self.assertIn("您知道今天几号吗？", prompt)
-        self.assertIn(str(test_chat.MAX_REPLY_LENGTH), prompt)
+            self.assertIn(memory["content"], statement_prompt)
+            self.assertIn(memory["content"], emotion_prompt)
+
+        self.assertIn(test_chat.PATIENT_INPUT, statement_prompt)
+        self.assertIn("只能使用陈述句温和确认", statement_prompt)
+        self.assertIn("不能出现问号", statement_prompt)
+
+        self.assertIn(test_chat.SECOND_PATIENT_INPUT, emotion_prompt)
+        self.assertIn("认可患者的情绪", emotion_prompt)
+        self.assertIn("温和引导患者回忆", emotion_prompt)
+        self.assertIn("允许温和的引导式提问", emotion_prompt)
+        self.assertIn("禁止测试性提问", emotion_prompt)
+        self.assertIn("最多只能包含一个问号", emotion_prompt)
+        self.assertIn("您还记得我是谁吗？", emotion_prompt)
+        self.assertIn("您知道今天几号吗？", emotion_prompt)
 
     def test_retrieve_memories_requests_top_two(self):
         fake_supabase = FakeSupabase()
@@ -193,7 +227,7 @@ class ChatScriptTests(unittest.TestCase):
             },
         )
 
-    def test_generate_reply_retries_invalid_question(self):
+    def test_generate_reply_retries_two_questions_in_statement_scenario(self):
         memories = [{"content": test_chat.MEMORY_TEXTS[0]}]
         valid_reply = "您中午吃了红烧肉，是女儿送来的。"
 
@@ -204,22 +238,44 @@ class ChatScriptTests(unittest.TestCase):
             reply = test_chat.generate_reply(
                 "deepseek-secret",
                 memories,
+                test_chat.PATIENT_INPUT,
+                test_chat.STATEMENT_CONFIRMATION,
             )
 
         self.assertEqual(reply, valid_reply)
         self.assertEqual(request_reply.call_count, 2)
         retry_messages = request_reply.call_args_list[1].args[1]
         self.assertIn(
-            "每句回复最多只能有一个问号",
+            "不能出现问号",
             retry_messages[-1]["content"],
         )
 
-    def test_main_inserts_memories_and_saves_conversation(self):
+    def test_generate_reply_allows_one_question_in_emotion_scenario(self):
+        memories = [{"content": test_chat.MEMORY_TEXTS[1]}]
+        valid_reply = "您想女儿了，能跟我说说以前开心的事吗？"
+
+        with patch(
+            "test_chat.request_deepseek_reply",
+            return_value=valid_reply,
+        ) as request_reply:
+            reply = test_chat.generate_reply(
+                "deepseek-secret",
+                memories,
+                test_chat.SECOND_PATIENT_INPUT,
+                test_chat.EMOTION_VALIDATION,
+            )
+
+        self.assertEqual(reply, valid_reply)
+        request_reply.assert_called_once()
+
+    def test_main_runs_both_scenarios_and_saves_both_conversations(self):
         fake_supabase = FakeSupabase()
         memory_embedding_one = [0.1] * test_chat.EXPECTED_DIMENSION
         memory_embedding_two = [0.2] * test_chat.EXPECTED_DIMENSION
-        query_embedding = [0.3] * test_chat.EXPECTED_DIMENSION
-        reply = "您中午吃了红烧肉，是女儿送来的。"
+        query_embedding_one = [0.3] * test_chat.EXPECTED_DIMENSION
+        query_embedding_two = [0.4] * test_chat.EXPECTED_DIMENSION
+        reply_one = "您今天中午吃了红烧肉，是女儿小芳送来的。"
+        reply_two = "您想女儿了，能跟我说说以前开心的事吗？"
         env = {
             "DEEPSEEK_API_KEY": "deepseek-secret",
             "SILICONFLOW_API_KEY": "siliconflow-secret",
@@ -238,12 +294,13 @@ class ChatScriptTests(unittest.TestCase):
                 side_effect=[
                     memory_embedding_one,
                     memory_embedding_two,
-                    query_embedding,
+                    query_embedding_one,
+                    query_embedding_two,
                 ],
             ) as embed_text,
             patch(
                 "test_chat.generate_reply",
-                return_value=reply,
+                side_effect=[reply_one, reply_two],
             ) as generate_reply,
             patch("builtins.print") as output,
         ):
@@ -268,6 +325,10 @@ class ChatScriptTests(unittest.TestCase):
                     test_chat.PATIENT_INPUT,
                     env["SILICONFLOW_API_KEY"],
                 ),
+                call(
+                    test_chat.SECOND_PATIENT_INPUT,
+                    env["SILICONFLOW_API_KEY"],
+                ),
             ],
         )
 
@@ -290,6 +351,7 @@ class ChatScriptTests(unittest.TestCase):
             [item["content"] for item in memory_inserts],
             list(test_chat.MEMORY_TEXTS),
         )
+        self.assertEqual(len(conversation_inserts), 2)
         self.assertEqual(
             conversation_inserts[0],
             [
@@ -301,23 +363,53 @@ class ChatScriptTests(unittest.TestCase):
                 {
                     "patient_id": "patient-123",
                     "role": "assistant",
-                    "content": reply,
+                    "content": reply_one,
                 },
             ],
         )
-        generate_reply.assert_called_once_with(
-            env["DEEPSEEK_API_KEY"],
-            fake_supabase.matches,
+        self.assertEqual(
+            conversation_inserts[1],
+            [
+                {
+                    "patient_id": "patient-123",
+                    "role": "user",
+                    "content": test_chat.SECOND_PATIENT_INPUT,
+                },
+                {
+                    "patient_id": "patient-123",
+                    "role": "assistant",
+                    "content": reply_two,
+                },
+            ],
+        )
+        self.assertEqual(
+            generate_reply.call_args_list,
+            [
+                call(
+                    env["DEEPSEEK_API_KEY"],
+                    fake_supabase.matches,
+                    test_chat.PATIENT_INPUT,
+                    test_chat.STATEMENT_CONFIRMATION,
+                ),
+                call(
+                    env["DEEPSEEK_API_KEY"],
+                    fake_supabase.matches,
+                    test_chat.SECOND_PATIENT_INPUT,
+                    test_chat.EMOTION_VALIDATION,
+                ),
+            ],
         )
 
         rendered_output = str(output.call_args_list)
         self.assertIn(test_chat.MEMORY_TEXTS[0], rendered_output)
-        self.assertIn(reply, rendered_output)
+        self.assertIn(test_chat.PATIENT_INPUT, rendered_output)
+        self.assertIn(test_chat.SECOND_PATIENT_INPUT, rendered_output)
+        self.assertIn(reply_one, rendered_output)
+        self.assertIn(reply_two, rendered_output)
         self.assertNotIn("deepseek-secret", rendered_output)
         self.assertNotIn("siliconflow-secret", rendered_output)
         self.assertNotIn("supabase-secret", rendered_output)
         self.assertNotIn(str(memory_embedding_one), rendered_output)
-
 
 if __name__ == "__main__":
     unittest.main()

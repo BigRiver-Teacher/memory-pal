@@ -23,6 +23,47 @@ MEMORY_TEXTS = (
     "女儿叫小芳，每周日来看她",
 )
 PATIENT_INPUT = "我吃午饭了吗"
+SECOND_PATIENT_INPUT = "我想我女儿了"
+
+STATEMENT_CONFIRMATION = "statement_confirmation"
+EMOTION_VALIDATION = "emotion_validation"
+
+SCENARIOS = (
+    {
+        "patient_input": PATIENT_INPUT,
+        "reply_strategy": STATEMENT_CONFIRMATION,
+    },
+    {
+        "patient_input": SECOND_PATIENT_INPUT,
+        "reply_strategy": EMOTION_VALIDATION,
+    },
+)
+
+EMOTION_MARKERS = (
+    "想",
+    "想念",
+    "惦记",
+    "牵挂",
+    "思念",
+    "舍不得",
+    "心里",
+)
+GUIDANCE_MARKERS = (
+    "说说",
+    "聊聊",
+    "讲讲",
+    "回忆",
+    "以前",
+    "过去",
+    "当年",
+    "开心的事",
+)
+TESTING_QUESTION_PATTERNS = (
+    "还记得我是谁",
+    "知道我是谁",
+    "知道今天几号",
+    "记得今天几号",
+)
 
 MAX_REPLY_LENGTH = 50
 MAX_REPLY_ATTEMPTS = 3
@@ -187,7 +228,25 @@ def retrieve_memories(
     return match_response.data or []
 
 
-def build_system_prompt(memories):
+def build_system_prompt(
+    memories,
+    patient_input=PATIENT_INPUT,
+    reply_strategy=STATEMENT_CONFIRMATION,
+):
+    if reply_strategy == STATEMENT_CONFIRMATION:
+        strategy_rules = (
+            "4. 只能使用陈述句温和确认，不能出现问号。\n"
+        )
+    elif reply_strategy == EMOTION_VALIDATION:
+        strategy_rules = (
+            "4. 必须先明确认可患者的情绪，再温和引导患者回忆。\n"
+            "5. 允许温和的引导式提问，例如“能跟我说说你们以前常做的事吗？”，"
+            "但禁止测试性提问，例如“您还记得我是谁吗？”“您知道今天几号吗？”。"
+            "每句回复最多只能包含一个问号。\n"
+        )
+    else:
+        raise ValueError(f"未知回复策略：{reply_strategy}")
+
     memory_block = "\n".join(
         f"- {memory['content']}"
         for memory in memories
@@ -198,21 +257,20 @@ def build_system_prompt(memories):
         "以下是从患者记忆中检索到的内容，"
         "回复时只能依据这些内容：\n"
         f"{memory_block}\n\n"
+        f"当前患者说：{patient_input}\n\n"
         "请严格遵守以下要求：\n"
-        "1. 用温和确认的语气回复患者。\n"
+        "1. 语气必须温和、克制。\n"
         "2. 不得编造记忆中没有的信息，"
         "不得补充不存在的事实、动机、情感或当前行踪。\n"
-        "3. 不得追问、反问，也不得要求患者继续确认或回答。\n"
-        "4. 允许温和的引导式提问，例如“能跟我说说你们以前常做的事吗？”，"
-        "但禁止测试性提问，例如“您还记得我是谁吗？”“您知道今天几号吗？”。"
-        "每句回复最多只能包含一个问号。\n"
-        "5. 不得出现“过世”“去世”“走了”等词。\n"
-        "6. 不得使用“可能”“应该”“大概”“也许”“或许”"
+        "3. 不得要求患者证明记忆或回答身份、时间类测试问题。\n"
+        f"{strategy_rules}"
+        "无论场景如何，还必须遵守：\n"
+        "不得出现“过世”“去世”“走了”等词。\n"
+        "不得使用“可能”“应该”“大概”“也许”“或许”"
         "等推测词。\n"
-        f"7. 回复不能超过 {MAX_REPLY_LENGTH} 个字。\n"
+        f"回复不能超过 {MAX_REPLY_LENGTH} 个字。\n"
         "只输出最终回复，不要解释。"
     )
-
 
 def request_deepseek_reply(
     api_key,
@@ -248,15 +306,25 @@ def request_deepseek_reply(
     return api_result["choices"][0]["message"]["content"].strip()
 
 
-def is_acceptable_reply(reply):
+def count_question_marks(reply):
+    return reply.count("?") + reply.count("？")
+
+
+def is_acceptable_reply(reply, reply_strategy=None):
     if not reply:
         return False
 
     if len(reply) > MAX_REPLY_LENGTH:
         return False
 
-    question_mark_count = reply.count("?") + reply.count("？")
+    question_mark_count = count_question_marks(reply)
     if question_mark_count > 1:
+        return False
+
+    if any(
+        pattern in reply
+        for pattern in TESTING_QUESTION_PATTERNS
+    ):
         return False
 
     if any(word in reply for word in FORBIDDEN_WORDS):
@@ -265,21 +333,48 @@ def is_acceptable_reply(reply):
     if any(word in reply for word in SPECULATION_WORDS):
         return False
 
+    if reply_strategy == STATEMENT_CONFIRMATION:
+        if question_mark_count != 0:
+            return False
+
+    elif reply_strategy == EMOTION_VALIDATION:
+        has_emotion_acknowledgement = any(
+            marker in reply
+            for marker in EMOTION_MARKERS
+        )
+        has_gentle_guidance = (
+            question_mark_count == 1
+            or any(marker in reply for marker in GUIDANCE_MARKERS)
+        )
+        if not has_emotion_acknowledgement:
+            return False
+        if not has_gentle_guidance:
+            return False
+
+    elif reply_strategy is not None:
+        raise ValueError(f"未知回复策略：{reply_strategy}")
+
     return True
 
 
 def generate_reply(
     deepseek_api_key,
     memories,
+    patient_input=PATIENT_INPUT,
+    reply_strategy=STATEMENT_CONFIRMATION,
 ):
     messages = [
         {
             "role": "system",
-            "content": build_system_prompt(memories),
+            "content": build_system_prompt(
+                memories,
+                patient_input,
+                reply_strategy,
+            ),
         },
         {
             "role": "user",
-            "content": PATIENT_INPUT,
+            "content": patient_input,
         },
     ]
 
@@ -289,10 +384,20 @@ def generate_reply(
             messages,
         )
 
-        if is_acceptable_reply(reply):
+        if is_acceptable_reply(reply, reply_strategy):
             return reply
 
         if attempt + 1 < MAX_REPLY_ATTEMPTS:
+            if reply_strategy == STATEMENT_CONFIRMATION:
+                strategy_feedback = (
+                    "必须用陈述句温和确认，不能出现问号。"
+                )
+            else:
+                strategy_feedback = (
+                    "必须先认可患者情感，再温和引导回忆；"
+                    "最多只能有一个问号，并且禁止测试性提问。"
+                )
+
             messages.extend(
                 [
                     {
@@ -303,8 +408,8 @@ def generate_reply(
                         "role": "user",
                         "content": (
                             "上面的回复不符合要求。请重新生成一句回复。"
-                            "必须温和确认，只依据检索到的记忆，不得编造，"
-                            "不得进行测试性提问，每句回复最多只能有一个问号，"
+                            "只依据检索到的记忆，不得编造。"
+                            f"{strategy_feedback}"
                             f"不能超过 {MAX_REPLY_LENGTH} 个字。"
                             "只输出回复本身。"
                         ),
@@ -314,11 +419,11 @@ def generate_reply(
 
     raise RuntimeError("未能生成符合要求的回复")
 
-
 def save_conversation(
     supabase,
     patient_id,
     reply,
+    patient_input=PATIENT_INPUT,
 ):
     response = (
         supabase
@@ -328,7 +433,7 @@ def save_conversation(
                 {
                     "patient_id": patient_id,
                     "role": "user",
-                    "content": PATIENT_INPUT,
+                    "content": patient_input,
                 },
                 {
                     "patient_id": patient_id,
@@ -342,6 +447,48 @@ def save_conversation(
 
     if len(response.data or []) != 2:
         raise RuntimeError("保存对话记录失败")
+
+def run_scenario(
+    supabase,
+    patient_id,
+    siliconflow_api_key,
+    deepseek_api_key,
+    scenario,
+):
+    patient_input = scenario["patient_input"]
+    reply_strategy = scenario["reply_strategy"]
+
+    query_embedding = embed_text(
+        patient_input,
+        siliconflow_api_key,
+    )
+
+    memories = retrieve_memories(
+        supabase,
+        patient_id,
+        query_embedding,
+    )
+
+    if not memories:
+        raise RuntimeError(
+            f"未检索到相关记忆：{patient_input}"
+        )
+
+    reply = generate_reply(
+        deepseek_api_key,
+        memories,
+        patient_input,
+        reply_strategy,
+    )
+
+    save_conversation(
+        supabase,
+        patient_id,
+        reply,
+        patient_input,
+    )
+
+    return memories, reply
 
 
 def main():
@@ -365,43 +512,33 @@ def main():
         siliconflow_api_key,
     )
 
-    query_embedding = embed_text(
-        PATIENT_INPUT,
-        siliconflow_api_key,
-    )
+    for index, scenario in enumerate(SCENARIOS, start=1):
+        try:
+            memories, reply = run_scenario(
+                supabase,
+                patient_id,
+                siliconflow_api_key,
+                deepseek_api_key,
+                scenario,
+            )
+        except RuntimeError as exc:
+            print(str(exc))
+            raise SystemExit(1) from exc
 
-    memories = retrieve_memories(
-        supabase,
-        patient_id,
-        query_embedding,
-    )
+        print(f"场景 {index}：{scenario['patient_input']}")
+        print("检索到的记忆：")
+        for memory_index, memory in enumerate(memories, start=1):
+            similarity = float(memory["similarity"])
+            print(
+                f"{memory_index}. {memory['content']}"
+                f"（相似度：{similarity:.4f}）"
+            )
 
-    if not memories:
-        print("未检索到相关记忆")
-        raise SystemExit(1)
+        print("AI 回复：")
+        print(reply)
 
-    reply = generate_reply(
-        deepseek_api_key,
-        memories,
-    )
-
-    save_conversation(
-        supabase,
-        patient_id,
-        reply,
-    )
-
-    print("检索到的记忆：")
-    for index, memory in enumerate(memories, start=1):
-        similarity = float(memory["similarity"])
-        print(
-            f"{index}. {memory['content']}"
-            f"（相似度：{similarity:.4f}）"
-        )
-
-    print("AI 回复：")
-    print(reply)
-
+        if index < len(SCENARIOS):
+            print()
 
 if __name__ == "__main__":
     main()
