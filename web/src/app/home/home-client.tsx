@@ -25,8 +25,11 @@ export default function HomeClient({
     }),
   );
   const [phone, setPhone] = useState("");
+  const [userId, setUserId] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isCheckingFamily, setIsCheckingFamily] = useState(false);
+  const [homeError, setHomeError] = useState("");
 
   useEffect(() => {
     let isActive = true;
@@ -45,6 +48,7 @@ export default function HomeClient({
 
       const email = data.user.email ?? "";
       setPhone(email.split("@")[0] || "已登录用户");
+      setUserId(data.user.id);
       setIsLoading(false);
     }
 
@@ -54,6 +58,33 @@ export default function HomeClient({
       isActive = false;
     };
   }, [router, supabase]);
+
+  async function openFamilyEntry() {
+    if (!userId || isCheckingFamily) {
+      return;
+    }
+
+    setIsCheckingFamily(true);
+    setHomeError("");
+
+    try {
+      const { data, error } = await supabase
+        .from("patients")
+        .select("id")
+        .eq("owner_id", userId)
+        .limit(1);
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      router.push(data && data.length > 0 ? "/family" : "/family/bind");
+    } catch {
+      setHomeError("暂时无法检查绑定状态，请稍后再试");
+    } finally {
+      setIsCheckingFamily(false);
+    }
+  }
 
   async function signOut() {
     if (isSigningOut) {
@@ -95,6 +126,15 @@ export default function HomeClient({
           </div>
         </header>
 
+        {homeError && (
+          <p
+            role="alert"
+            className="rounded-2xl bg-[#fff0ef] px-5 py-4 text-center text-lg font-bold text-[#a33a31]"
+          >
+            {homeError}
+          </p>
+        )}
+
         <section className="grid gap-6 md:grid-cols-2">
           <Link
             href="/patient/bind"
@@ -113,22 +153,24 @@ export default function HomeClient({
             </p>
           </Link>
 
-          <Link
-            href="/family"
-            className="group flex min-h-56 flex-col justify-between rounded-[32px] bg-[#9c6b3f] p-6 text-white shadow-xl transition hover:-translate-y-1 hover:bg-[#825431] focus:outline-none focus:ring-4 focus:ring-[#9c6b3f]/35 sm:p-8"
+          <button
+            type="button"
+            onClick={() => void openFamilyEntry()}
+            disabled={isLoading || isCheckingFamily}
+            className="group flex min-h-56 flex-col justify-between rounded-[32px] bg-[#9c6b3f] p-6 text-left text-white shadow-xl transition hover:-translate-y-1 hover:bg-[#825431] focus:outline-none focus:ring-4 focus:ring-[#9c6b3f]/35 disabled:cursor-not-allowed disabled:opacity-70 sm:p-8"
           >
             <div>
               <p className="text-lg font-semibold text-[#f5deca]">
                 管理记忆与日报
               </p>
               <h2 className="mt-3 text-4xl font-bold sm:text-5xl">
-                家属端
+                {isCheckingFamily ? "正在检查..." : "家属端"}
               </h2>
             </div>
             <p className="mt-8 text-xl leading-9 text-[#fff4e9]">
               添加记忆、查看患者今天的对话和家属建议。
             </p>
-          </Link>
+          </button>
         </section>
       </div>
     </main>

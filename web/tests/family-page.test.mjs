@@ -6,35 +6,37 @@ const pageUrl = new URL(
   "../src/app/family/page.tsx",
   import.meta.url,
 );
+const clientUrl = new URL(
+  "../src/app/family/family-client.tsx",
+  import.meta.url,
+);
 const pageSource = await readFile(pageUrl, "utf8");
+const clientSource = await readFile(clientUrl, "utf8");
 
-test("family page loads and saves memories for the test patient", () => {
-  assert.ok(
-    pageSource.includes(
-      'const TEST_PATIENT_ID = "478504db-9cbe-4a31-b9f2-fd70c02cc95d"',
-    ),
-  );
-  assert.ok(pageSource.includes('fetch('));
-  assert.ok(pageSource.includes('`/api/memory?patientId='));
-  assert.ok(pageSource.includes('method: "POST"'));
-  assert.ok(pageSource.includes("content: trimmedContent"));
+test("family page uses authenticated owner binding before loading memories", () => {
+  assert.match(pageSource, /force-dynamic/);
+  assert.match(pageSource, /process\.env\.SUPABASE_URL/);
+  assert.ok(clientSource.includes("supabase.auth.getUser"));
+  assert.ok(clientSource.includes('.eq("owner_id", userData.user.id)'));
+  assert.ok(clientSource.includes('router.replace("/family/bind")'));
+  assert.ok(clientSource.includes("/api/memory?patientId="));
 });
 
 test("family page renders memory metadata and source labels", () => {
-  assert.ok(pageSource.includes("emotion"));
-  assert.ok(pageSource.includes("entities"));
-  assert.ok(pageSource.includes("未分类"));
-  assert.ok(pageSource.includes("关联人物"));
-  assert.ok(pageSource.includes("家属录入"));
-  assert.ok(pageSource.includes("患者自述"));
+  assert.ok(clientSource.includes("emotion"));
+  assert.ok(clientSource.includes("entities"));
+  assert.ok(clientSource.includes("未分类"));
+  assert.ok(clientSource.includes("关联人物"));
+  assert.ok(clientSource.includes("家属录入"));
+  assert.ok(clientSource.includes("患者自述"));
 });
 
 test("family page renders large memory cards and add dialog", () => {
-  assert.ok(pageSource.includes("忆伴 · 家属端"));
-  assert.ok(pageSource.includes("添加记忆"));
-  assert.ok(pageSource.includes("created_at"));
-  assert.ok(pageSource.includes("正在保存..."));
-  assert.ok(pageSource.includes("rounded-3xl"));
-  assert.ok(pageSource.includes("text-xl"));
-  assert.ok(pageSource.includes("text-2xl"));
+  assert.ok(clientSource.includes("忆伴 · 家属端"));
+  assert.ok(clientSource.includes("添加记忆"));
+  assert.ok(clientSource.includes("created_at"));
+  assert.ok(clientSource.includes("正在保存..."));
+  assert.ok(clientSource.includes("rounded-3xl"));
+  assert.ok(clientSource.includes("text-xl"));
+  assert.ok(clientSource.includes("text-2xl"));
 });

@@ -20,11 +20,13 @@ test("home page reads Supabase configuration dynamically", () => {
   assert.ok(!pageSource.includes("SERVICE_ROLE"));
 });
 
-test("home page shows phone and links to both entry points", () => {
+test("home page shows phone and routes family by binding status", () => {
   assert.ok(clientSource.includes("supabase.auth.getUser"));
   assert.ok(clientSource.includes('email.split("@")[0]'));
   assert.ok(clientSource.includes('href="/patient/bind"'));
-  assert.ok(clientSource.includes('href="/family"'));
+  assert.ok(clientSource.includes("openFamilyEntry"));
+  assert.ok(clientSource.includes(".eq(\"owner_id\", userId)"));
+  assert.ok(clientSource.includes('router.push(data && data.length > 0 ? "/family" : "/family/bind")'));
   assert.ok(clientSource.includes("患者端"));
   assert.ok(clientSource.includes("家属端"));
 });
