@@ -95,15 +95,15 @@ function formatCurrentDateTime(): string {
     month: "long",
     day: "numeric",
     weekday: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
   }).format(new Date());
 }
 
-function isCurrentDateTimeQuestion(message: string): boolean {
-  return (
-    /(今天|明天|昨天|现在).*(几号|星期几|周几|几点|时间)/.test(
-      message,
-    ) ||
-    /(几号|星期几|周几)/.test(message)
+function isDateTimeQuestion(message: string): boolean {
+  return /几号|星期几|周几|几点|什么时候|时间|节日|中秋|春节|国庆/.test(
+    message,
   );
 }
 
@@ -301,15 +301,18 @@ async function requestDeepSeekJson(
 async function classifyPatientIntent(
   apiKey: string,
   message: string,
-): Promise<"question" | "story"> {
+): Promise<"memory" | "story" | "datetime" | "other"> {
   const result = await requestDeepSeekJson(apiKey, [
     {
       role: "system",
       content:
         "你负责判断患者话语的意图，并且只输出 json 对象。" +
-        '格式必须是 {"intent":"question"} 或 {"intent":"story"}。' +
-        "如果患者在询问事实、确认记忆或提出疑问，输出 question。" +
-        "如果患者在主动讲述过去经历、故事或生活片段，输出 story。",
+        '格式必须是 {"intent":"memory"}、{"intent":"story"}、' +
+        '{"intent":"datetime"} 或 {"intent":"other"}。' +
+        "如果患者在确认一段记忆，输出 memory。" +
+        "如果患者在主动讲述过去经历、故事或生活片段，输出 story。" +
+        "如果患者在询问日期、星期、时间、节日日期或倒计时，输出 datetime。" +
+        "其他情况输出 other。",
     },
     {
       role: "user",
@@ -317,11 +320,39 @@ async function classifyPatientIntent(
     },
   ]);
 
-  if (isRecord(result) && result.intent === "story") {
-    return "story";
+  if (
+    isRecord(result) &&
+    (result.intent === "memory" ||
+      result.intent === "story" ||
+      result.intent === "datetime" ||
+      result.intent === "other")
+  ) {
+    return result.intent;
   }
 
-  return "question";
+  return isDateTimeQuestion(message) ? "datetime" : "other";
+}
+
+async function generateDateTimeReply(
+  apiKey: string,
+  message: string,
+): Promise<string> {
+  return requestDeepSeekReply(apiKey, [
+    {
+      role: "system",
+      content:
+        `当前时间是 ${formatCurrentDateTime()}。` +
+        "你正在直接回答时间、日期或节日相关问题。" +
+        "请用温和、简短、口语化的方式回答，不超过 50 个字。" +
+        "不要检索或引用患者记忆。" +
+        "对于节日类问题，如果无法准确确认具体日期，" +
+        "必须回答“这个我记不太清了，您可以问问家里人”，不要编造日期。",
+    },
+    {
+      role: "user",
+      content: message,
+    },
+  ]);
 }
 
 async function extractMemoryAnchors(
@@ -502,10 +533,31 @@ export async function POST(request: Request): Promise<Response> {
     );
 
     const isTestMode = isTestModeEnabled();
-    const intent = await classifyPatientIntent(
+    const classifiedIntent = await classifyPatientIntent(
       deepseekApiKey,
       body.message,
     );
+    const intent = isDateTimeQuestion(body.message)
+      ? "datetime"
+      : classifiedIntent;
+
+    if (intent === "datetime") {
+      const reply = await generateDateTimeReply(
+        deepseekApiKey,
+        body.message,
+      );
+
+      if (!isTestMode) {
+        await saveConversation(
+          supabase,
+          body.patientId,
+          body.message,
+          reply,
+        );
+      }
+
+      return Response.json({ reply });
+    }
 
     const queryEmbedding = await createEmbedding(
       body.message,
@@ -534,19 +586,12 @@ export async function POST(request: Request): Promise<Response> {
       body.patientId,
       queryEmbedding,
     );
-    const asksForCurrentDateTime = isCurrentDateTimeQuestion(
-      body.message,
-    );
-    const memoriesForPrompt = asksForCurrentDateTime
-      ? []
-      : memories;
-
     const reply =
-      asksForCurrentDateTime || memoriesForPrompt.length > 0
+      memories.length > 0
         ? await generateReply(
             deepseekApiKey,
             body.message,
-            memoriesForPrompt,
+            memories,
           )
         : FALLBACK_REPLY;
 

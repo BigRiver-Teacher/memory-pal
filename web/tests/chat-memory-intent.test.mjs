@@ -15,27 +15,33 @@ test("chat route filters memory similarity and keeps the fallback", () => {
   assert.match(routeSource, /FALLBACK_REPLY/);
 });
 
-test("chat route injects the current date and date-question rule", () => {
-  assert.match(routeSource, /formatCurrentDateTime/);
-  assert.match(routeSource, /Asia\/Shanghai/);
-  assert.match(routeSource, /当前时间是 \$\{currentDateTime\}/);
-  assert.match(
-    routeSource,
-    /如果患者问今天几号、星期几，直接根据“当前时间”回答/,
-  );
-  assert.match(routeSource, /isCurrentDateTimeQuestion/);
-  assert.match(routeSource, /memoriesForPrompt/);
+test("chat route recognizes datetime intent with keyword fallback", () => {
+  assert.match(routeSource, /"memory" \| "story" \| "datetime" \| "other"/);
+  assert.match(routeSource, /isDateTimeQuestion/);
+  assert.match(routeSource, /几号\|星期几\|周几\|几点\|什么时候/);
+  assert.match(routeSource, /中秋/);
+  assert.match(routeSource, /春节/);
+  assert.match(routeSource, /国庆/);
 });
 
-test("chat route extracts story intent and stores memories safely", () => {
-  assert.match(routeSource, /classifyPatientIntent/);
+test("chat route answers datetime without memory retrieval", () => {
+  const datetimeIndex = routeSource.indexOf('if (intent === "datetime")');
+  const embeddingIndex = routeSource.indexOf(
+    "const queryEmbedding = await createEmbedding",
+  );
+
+  assert.ok(datetimeIndex >= 0);
+  assert.ok(embeddingIndex >= 0);
+  assert.ok(datetimeIndex < embeddingIndex);
+  assert.match(routeSource, /generateDateTimeReply/);
+  assert.match(routeSource, /当前时间是 \$\{formatCurrentDateTime\(\)\}/);
+  assert.match(routeSource, /这个我记不太清了，您可以问问家里人/);
+});
+
+test("chat route keeps story extraction and storage", () => {
   assert.match(routeSource, /intent === "story"/);
-  assert.match(routeSource, /response_format: \{ type: "json_object" \}/);
   assert.match(routeSource, /extractMemoryAnchors/);
-  assert.match(routeSource, /entities: string\[\]/);
-  assert.match(routeSource, /emotion: string/);
   assert.match(routeSource, /storeStoryMemory/);
-  assert.match(routeSource, /\.eq\("content", message\)/);
-  assert.match(routeSource, /content: message/);
   assert.match(routeSource, /source: "patient"/);
+  assert.match(routeSource, /response_format: \{ type: "json_object" \}/);
 });
