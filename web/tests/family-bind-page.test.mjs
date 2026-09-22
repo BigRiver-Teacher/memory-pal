@@ -20,12 +20,14 @@ test("family bind page reads Supabase configuration dynamically", () => {
   assert.ok(!pageSource.includes("SERVICE_ROLE"));
 });
 
-test("family bind form inserts patient owned by current user", () => {
+test("family bind form allows multiple patients and selects the new one", () => {
   assert.ok(formSource.includes("supabase.auth.getUser"));
-  assert.ok(formSource.includes('.eq("owner_id", userData.user.id)'));
   assert.ok(formSource.includes("owner_id: userId"));
   assert.ok(formSource.includes("family_contact: trimmedContact || null"));
+  assert.ok(formSource.includes('"current_patient_id"'));
+  assert.ok(formSource.includes("window.localStorage.setItem"));
   assert.ok(formSource.includes('router.replace("/family")'));
+  assert.ok(!formSource.includes("only one"));
 });
 
 test("family bind form has required nickname and optional contact", () => {

@@ -34,53 +34,24 @@ export default function FamilyBindForm({
   useEffect(() => {
     let isActive = true;
 
-    async function checkBinding() {
-      try {
-        const { data: userData, error: userError } =
-          await supabase.auth.getUser();
+    async function loadCurrentUser() {
+      const { data: userData, error: userError } =
+        await supabase.auth.getUser();
 
-        if (!isActive) {
-          return;
-        }
-
-        if (userError || !userData.user) {
-          router.replace("/login");
-          return;
-        }
-
-        const { data: patientData, error: patientError } =
-          await supabase
-            .from("patients")
-            .select("id")
-            .eq("owner_id", userData.user.id)
-            .limit(1);
-
-        if (!isActive) {
-          return;
-        }
-
-        if (patientError) {
-          throw new Error(patientError.message);
-        }
-
-        if (patientData && patientData.length > 0) {
-          router.replace("/family");
-          return;
-        }
-
-        setUserId(userData.user.id);
-      } catch {
-        if (isActive) {
-          setErrorMessage("暂时无法检查绑定状态，请稍后再试");
-        }
-      } finally {
-        if (isActive) {
-          setIsChecking(false);
-        }
+      if (!isActive) {
+        return;
       }
+
+      if (userError || !userData.user) {
+        router.replace("/login");
+        return;
+      }
+
+      setUserId(userData.user.id);
+      setIsChecking(false);
     }
 
-    void checkBinding();
+    void loadCurrentUser();
 
     return () => {
       isActive = false;
@@ -104,7 +75,7 @@ export default function FamilyBindForm({
     setErrorMessage("");
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("patients")
         .insert({
           owner_id: userId,
@@ -118,6 +89,14 @@ export default function FamilyBindForm({
         throw new Error(error.message);
       }
 
+      if (!data?.id) {
+        throw new Error("Patient id was not returned");
+      }
+
+      window.localStorage.setItem(
+        "current_patient_id",
+        data.id as string,
+      );
       router.replace("/family");
       router.refresh();
     } catch {
@@ -142,10 +121,10 @@ export default function FamilyBindForm({
             忆伴 · 家属端
           </p>
           <h1 className="mt-2 text-4xl font-bold text-[#205c4b]">
-            绑定患者
+            添加患者
           </h1>
           <p className="mt-3 text-lg leading-8 text-[#7a6f61]">
-            绑定后即可为患者添加记忆并查看日报。
+            可以添加多个患者，当前选中的患者会用于记忆管理。
           </p>
         </header>
 
@@ -214,7 +193,7 @@ export default function FamilyBindForm({
               disabled={isSubmitting}
               className="min-h-16 rounded-2xl bg-[#205c4b] px-8 text-xl font-bold text-white shadow-md transition hover:bg-[#18493c] focus:outline-none focus:ring-4 focus:ring-[#4f8f78]/35 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              {isSubmitting ? "正在绑定..." : "确认绑定"}
+              {isSubmitting ? "正在添加..." : "确认添加"}
             </button>
           </form>
         )}

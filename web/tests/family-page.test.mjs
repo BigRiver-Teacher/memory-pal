@@ -13,11 +13,14 @@ const clientUrl = new URL(
 const pageSource = await readFile(pageUrl, "utf8");
 const clientSource = await readFile(clientUrl, "utf8");
 
-test("family page uses authenticated owner binding before loading memories", () => {
+test("family page uses current_patient_id with first-patient fallback", () => {
   assert.match(pageSource, /force-dynamic/);
   assert.match(pageSource, /process\.env\.SUPABASE_URL/);
   assert.ok(clientSource.includes("supabase.auth.getUser"));
   assert.ok(clientSource.includes('.eq("owner_id", userData.user.id)'));
+  assert.ok(clientSource.includes('"current_patient_id"'));
+  assert.ok(clientSource.includes("window.localStorage.getItem"));
+  assert.ok(clientSource.includes("?? patients[0]"));
   assert.ok(clientSource.includes('router.replace("/family/bind")'));
   assert.ok(clientSource.includes("/api/memory?patientId="));
 });

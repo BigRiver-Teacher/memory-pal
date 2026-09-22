@@ -13,6 +13,7 @@ type PatientRow = {
   id: string;
   name: string;
   family_contact: string | null;
+  created_at: string;
 };
 
 type MemoryRow = {
@@ -96,9 +97,9 @@ export default function FamilyClient({
         const { data: patientData, error: patientError } =
           await supabase
             .from("patients")
-            .select("id, name, family_contact")
+            .select("id, name, family_contact, created_at")
             .eq("owner_id", userData.user.id)
-            .limit(1);
+            .order("created_at", { ascending: true });
 
         if (!isActive) {
           return;
@@ -108,13 +109,24 @@ export default function FamilyClient({
           throw new Error(patientError.message);
         }
 
-        const patient = ((patientData ?? []) as PatientRow[])[0];
+        const patients = (patientData ?? []) as PatientRow[];
 
-        if (!patient) {
+        if (patients.length === 0) {
           router.replace("/family/bind");
           return;
         }
 
+        const storedPatientId =
+          window.localStorage.getItem("current_patient_id");
+        const patient =
+          patients.find(
+            (candidate) => candidate.id === storedPatientId,
+          ) ?? patients[0];
+
+        window.localStorage.setItem(
+          "current_patient_id",
+          patient.id,
+        );
         setPatientId(patient.id);
         setPatientName(patient.name);
 
