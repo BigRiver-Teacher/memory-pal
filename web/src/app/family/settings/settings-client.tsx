@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import FamilyNav from "@/components/FamilyNav";
+import { clearAllReportCaches } from "@/lib/report-cache";
 
 type SettingsClientProps = {
   supabaseUrl: string;
@@ -180,6 +181,7 @@ export default function SettingsClient({
     }
 
     setIsSigningOut(true);
+    clearAllReportCaches();
 
     try {
       await supabase.auth.signOut();

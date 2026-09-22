@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { clearAllReportCaches } from "@/lib/report-cache";
 
 type PatientsClientProps = {
   supabaseUrl: string;
@@ -120,6 +121,7 @@ export default function PatientsClient({
   }, [router, supabase]);
 
   function switchPatient(patientId: string) {
+    clearAllReportCaches();
     window.localStorage.setItem(
       "current_patient_id",
       patientId,

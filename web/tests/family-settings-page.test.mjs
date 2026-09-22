@@ -42,6 +42,7 @@ test("settings page shows current patient and navigation entries", () => {
 test("settings page contains about and logout", () => {
   assert.ok(clientSource.includes("阿尔茨海默症家庭"));
   assert.ok(clientSource.includes("v0.1.0"));
+  assert.ok(clientSource.includes("clearAllReportCaches"));
   assert.ok(clientSource.includes("supabase.auth.signOut"));
   assert.ok(clientSource.includes('router.replace("/login")'));
 });

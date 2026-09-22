@@ -29,6 +29,7 @@ test("patients page lists all owned patients and marks selection", () => {
   assert.ok(clientSource.includes('role="button"'));
   assert.ok(clientSource.includes("onClick={() => switchPatient(patient.id)}"));
   assert.ok(clientSource.includes("event.stopPropagation()"));
+  assert.ok(clientSource.includes("clearAllReportCaches"));
   assert.ok(clientSource.includes('href="/family/bind"'));
   assert.ok(clientSource.includes("添加新患者"));
 });

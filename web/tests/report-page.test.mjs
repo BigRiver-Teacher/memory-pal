@@ -22,6 +22,10 @@ test("report page resolves the current patient", () => {
   assert.ok(clientSource.includes("window.localStorage.getItem"));
   assert.ok(clientSource.includes("?? patients[0]"));
   assert.ok(clientSource.includes("/api/report?patientId="));
+  assert.ok(clientSource.includes("readReportCache"));
+  assert.ok(clientSource.includes("writeReportCache"));
+  assert.ok(clientSource.includes("clearReportCachesForPatient"));
+  assert.ok(clientSource.includes("刷新日报"));
 });
 
 test("report page contains all three report sections", () => {

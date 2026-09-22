@@ -5,6 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import FamilyNav from "@/components/FamilyNav";
+import {
+  clearReportCachesForPatient,
+  getShanghaiDateKey,
+  readReportCache,
+  writeReportCache,
+} from "@/lib/report-cache";
 
 type ReportClientProps = {
   supabaseUrl: string;
@@ -51,6 +57,19 @@ function formatTime(value: string): string {
   }).format(date);
 }
 
+async function fetchLatestReport(
+  patientId: string,
+): Promise<ReportData> {
+  const response = await fetch(
+    `/api/report?patientId=${encodeURIComponent(patientId)}`,
+  );
+
+  if (!response.ok) {
+    throw new Error("Report request failed");
+  }
+
+  return (await response.json()) as ReportData;
+}
 export default function ReportClient({
   supabaseUrl,
   supabaseAnonKey,
@@ -66,9 +85,13 @@ export default function ReportClient({
     }),
   );
   const [patientName, setPatientName] = useState("");
+  const [currentPatientId, setCurrentPatientId] = useState("");
+  const [currentDateKey, setCurrentDateKey] = useState("");
   const [report, setReport] = useState<ReportData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
+  const [refreshError, setRefreshError] = useState("");
 
   useEffect(() => {
     let isActive = true;
@@ -76,6 +99,8 @@ export default function ReportClient({
     async function initializeReport() {
       setIsLoading(true);
       setErrorMessage("");
+      setRefreshError("");
+      let displayedCachedReport = false;
 
       try {
         const { data: userData, error: userError } =
@@ -118,28 +143,35 @@ export default function ReportClient({
           patients.find(
             (candidate) => candidate.id === storedPatientId,
           ) ?? patients[0];
+        const dateKey = getShanghaiDateKey();
 
         window.localStorage.setItem(
           "current_patient_id",
           patient.id,
         );
+        setCurrentPatientId(patient.id);
+        setCurrentDateKey(dateKey);
         setPatientName(patient.name);
 
-        const response = await fetch(
-          `/api/report?patientId=${encodeURIComponent(patient.id)}`,
+        const cachedReport = readReportCache<ReportData>(
+          patient.id,
+          dateKey,
         );
 
-        if (!response.ok) {
-          throw new Error("Report request failed");
+        if (cachedReport && isActive) {
+          setReport(cachedReport);
+          setIsLoading(false);
+          displayedCachedReport = true;
         }
 
-        const data = (await response.json()) as ReportData;
+        const latestReport = await fetchLatestReport(patient.id);
 
         if (isActive) {
-          setReport(data);
+          setReport(latestReport);
+          writeReportCache(patient.id, dateKey, latestReport);
         }
       } catch {
-        if (isActive) {
+        if (isActive && !displayedCachedReport) {
           setErrorMessage("暂时无法生成日报，请稍后再试");
         }
       } finally {
@@ -156,6 +188,25 @@ export default function ReportClient({
     };
   }, [router, supabase]);
 
+  async function refreshReport() {
+    if (!currentPatientId || !currentDateKey || isRefreshing) {
+      return;
+    }
+
+    clearReportCachesForPatient(currentPatientId);
+    setIsRefreshing(true);
+    setRefreshError("");
+
+    try {
+      const latestReport = await fetchLatestReport(currentPatientId);
+      setReport(latestReport);
+      writeReportCache(currentPatientId, currentDateKey, latestReport);
+    } catch {
+      setRefreshError("刷新失败，请稍后再试");
+    } finally {
+      setIsRefreshing(false);
+    }
+  }
   const hasTodayData =
     report !== null &&
     (report.questions.length > 0 ||
@@ -172,13 +223,32 @@ export default function ReportClient({
             >
               ← 返回患者管理
             </Link>
-            <Link
-              href="/family/patients"
-              className="text-base font-bold text-[#9c6b3f] underline decoration-[#d5b18d] underline-offset-4 sm:text-lg"
-            >
-              切换患者
-            </Link>
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => void refreshReport()}
+                disabled={isRefreshing || !currentPatientId}
+                className="min-h-11 rounded-2xl bg-[#205c4b] px-4 text-base font-bold text-white transition hover:bg-[#18493c] disabled:cursor-not-allowed disabled:opacity-60 sm:text-lg"
+              >
+                {isRefreshing ? "刷新中..." : "刷新日报"}
+              </button>
+              <Link
+                href="/family/patients"
+                className="text-base font-bold text-[#9c6b3f] underline decoration-[#d5b18d] underline-offset-4 sm:text-lg"
+              >
+                切换患者
+              </Link>
+            </div>
           </div>
+
+          {refreshError && (
+            <p
+              role="alert"
+              className="mt-4 rounded-2xl bg-[#fff0ef] px-4 py-3 text-center text-base font-bold text-[#a33a31]"
+            >
+              {refreshError}
+            </p>
+          )}
 
           <p className="mt-5 text-base font-semibold text-[#7a6f61] sm:text-lg">
             忆伴 · 家属端
