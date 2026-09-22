@@ -543,16 +543,24 @@ export default function PatientClient({
     <main className="flex h-dvh flex-col overflow-hidden bg-[#f7f3ea] text-[#2d2924]">
       <header className="border-b border-[#dfd6c8] bg-[#fffdf8]/95 px-4 py-5 shadow-sm backdrop-blur sm:px-8 sm:py-6">
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
-          <div className="flex items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <Link
               href="/home"
               className="text-base font-bold text-[#205c4b] underline decoration-[#9f9384] underline-offset-4 sm:text-lg"
             >
               ← 返回主页
             </Link>
-            <p className="text-base font-bold text-[#5f5549] sm:text-lg">
-              当前患者：{patientName || "正在加载..."}
-            </p>
+            <div className="flex items-center gap-4">
+              <Link
+                href="/patient/today"
+                className="rounded-full bg-[#e8f3ee] px-4 py-2 text-base font-bold text-[#205c4b] transition hover:bg-[#dcece5] sm:text-lg"
+              >
+                今天
+              </Link>
+              <p className="text-base font-bold text-[#5f5549] sm:text-lg">
+                当前患者：{patientName || "正在加载..."}
+              </p>
+            </div>
           </div>
 
           <div className="flex items-center justify-between gap-4">

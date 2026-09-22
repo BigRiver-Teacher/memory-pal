@@ -31,6 +31,8 @@ test("patient page sends selected patient id to chat API", () => {
   assert.ok(clientSource.includes("message: trimmedMessage"));
   assert.ok(clientSource.includes("当前患者："));
   assert.ok(clientSource.includes('href="/home"'));
+  assert.ok(clientSource.includes('href="/patient/today"'));
+  assert.ok(clientSource.includes("今天"));
 });
 
 test("patient page includes loading, error, reset and scroll behavior", () => {
