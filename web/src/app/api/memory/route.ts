@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createSmartClient } from "supadns-js";
 
 export const runtime = "nodejs";
 
@@ -44,7 +45,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function createSupabaseClient(): SupabaseClient {
-  return createClient(
+  return createSmartClient(
     getRequiredEnv("SUPABASE_URL"),
     getRequiredEnv("SUPABASE_SERVICE_ROLE_KEY"),
     {

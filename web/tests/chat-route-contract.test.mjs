@@ -50,6 +50,7 @@ test("chat route uses two memories and supports test mode", () => {
     routeSource,
     /FALLBACK_REPLY\s*=\s*[\s\S]*我不太记得这件事，您可以跟我多说说吗？/,
   );
-  assert.match(routeSource, /createClient\(/);
+  assert.match(routeSource, /createSmartClient\(/);
+  assert.match(routeSource, /from "supadns-js"/);
   assert.match(routeSource, /supabaseServiceRoleKey/);
 });

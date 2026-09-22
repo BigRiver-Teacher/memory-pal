@@ -1,4 +1,5 @@
-import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { createSmartClient } from "supadns-js";
 
 export const runtime = "nodejs";
 
@@ -596,7 +597,7 @@ export async function POST(request: Request): Promise<Response> {
       "SUPABASE_SERVICE_ROLE_KEY",
     );
 
-    const supabase = createClient(
+    const supabase = createSmartClient(
       supabaseUrl,
       supabaseServiceRoleKey,
       {
