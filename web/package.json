@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --test tests/chat-route-contract.test.mjs tests/chat-memory-intent.test.mjs tests/patient-page.test.mjs"
+    "test": "node --test tests/chat-route-contract.test.mjs tests/chat-memory-intent.test.mjs tests/patient-page.test.mjs tests/memory-route-contract.test.mjs tests/family-page.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.116.0",
