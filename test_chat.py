@@ -203,7 +203,9 @@ def build_system_prompt(memories):
         "2. 不得编造记忆中没有的信息，"
         "不得补充不存在的事实、动机、情感或当前行踪。\n"
         "3. 不得追问、反问，也不得要求患者继续确认或回答。\n"
-        "4. 只使用陈述句，不能出现问号。\n"
+        "4. 允许温和的引导式提问，例如“能跟我说说你们以前常做的事吗？”，"
+        "但禁止测试性提问，例如“您还记得我是谁吗？”“您知道今天几号吗？”。"
+        "每句回复最多只能包含一个问号。\n"
         "5. 不得出现“过世”“去世”“走了”等词。\n"
         "6. 不得使用“可能”“应该”“大概”“也许”“或许”"
         "等推测词。\n"
@@ -253,7 +255,8 @@ def is_acceptable_reply(reply):
     if len(reply) > MAX_REPLY_LENGTH:
         return False
 
-    if "?" in reply or "？" in reply:
+    question_mark_count = reply.count("?") + reply.count("？")
+    if question_mark_count > 1:
         return False
 
     if any(word in reply for word in FORBIDDEN_WORDS):
@@ -301,7 +304,7 @@ def generate_reply(
                         "content": (
                             "上面的回复不符合要求。请重新生成一句回复。"
                             "必须温和确认，只依据检索到的记忆，不得编造，"
-                            "不得追问或反问，不能出现问号，"
+                            "不得进行测试性提问，每句回复最多只能有一个问号，"
                             f"不能超过 {MAX_REPLY_LENGTH} 个字。"
                             "只输出回复本身。"
                         ),

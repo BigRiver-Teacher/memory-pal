@@ -132,8 +132,16 @@ class ChatScriptTests(unittest.TestCase):
                 "您中午吃了红烧肉，是女儿送来的。"
             )
         )
-        self.assertFalse(
+        self.assertTrue(
             test_chat.is_acceptable_reply("您中午吃了吗？")
+        )
+        self.assertTrue(
+            test_chat.is_acceptable_reply("能说说今天吃了什么吗?")
+        )
+        self.assertFalse(
+            test_chat.is_acceptable_reply(
+                "您吃了吗？还记得吗？"
+            )
         )
         self.assertFalse(
             test_chat.is_acceptable_reply("您可能吃过午饭。")
@@ -155,7 +163,11 @@ class ChatScriptTests(unittest.TestCase):
         self.assertIn("温和确认", prompt)
         self.assertIn("不得编造", prompt)
         self.assertIn("不得追问", prompt)
-        self.assertIn("不能出现问号", prompt)
+        self.assertIn("允许温和的引导式提问", prompt)
+        self.assertIn("禁止测试性提问", prompt)
+        self.assertIn("每句回复最多只能包含一个问号", prompt)
+        self.assertIn("您还记得我是谁吗？", prompt)
+        self.assertIn("您知道今天几号吗？", prompt)
         self.assertIn(str(test_chat.MAX_REPLY_LENGTH), prompt)
 
     def test_retrieve_memories_requests_top_two(self):
@@ -187,7 +199,7 @@ class ChatScriptTests(unittest.TestCase):
 
         with patch(
             "test_chat.request_deepseek_reply",
-            side_effect=["您中午吃了吗？", valid_reply],
+            side_effect=["您吃了吗？还记得吗？", valid_reply],
         ) as request_reply:
             reply = test_chat.generate_reply(
                 "deepseek-secret",
@@ -198,7 +210,7 @@ class ChatScriptTests(unittest.TestCase):
         self.assertEqual(request_reply.call_count, 2)
         retry_messages = request_reply.call_args_list[1].args[1]
         self.assertIn(
-            "不得追问或反问",
+            "每句回复最多只能有一个问号",
             retry_messages[-1]["content"],
         )
 
