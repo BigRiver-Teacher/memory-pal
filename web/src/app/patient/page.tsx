@@ -1,30 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+const TEST_PATIENT_ID = "478504db-9cbe-4a31-b9f2-fd70c02cc95d";
 
 type Message = {
-  id: number;
+  id: string;
   sender: "patient" | "ai";
   text: string;
 };
-
-const mockMessages: Message[] = [
-  {
-    id: 1,
-    sender: "ai",
-    text: "阿姨，今天感觉怎么样？",
-  },
-  {
-    id: 2,
-    sender: "patient",
-    text: "我吃午饭了吗？",
-  },
-  {
-    id: 3,
-    sender: "ai",
-    text: "今天中午您吃了红烧肉，是女儿小芳送来的。",
-  },
-];
 
 const now = new Date();
 const currentDate = new Intl.DateTimeFormat("zh-CN", {
@@ -36,7 +20,95 @@ const currentDate = new Intl.DateTimeFormat("zh-CN", {
 const currentDateTime = now.toISOString().slice(0, 10);
 
 export default function PatientPage() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [message, setMessage] = useState("");
+  const [isSending, setIsSending] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [showTextInput, setShowTextInput] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }, [messages, isSending]);
+
+  async function sendMessage() {
+    const trimmedMessage = message.trim();
+
+    if (!trimmedMessage || isSending) {
+      return;
+    }
+
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      sender: "patient",
+      text: trimmedMessage,
+    };
+
+    setMessages((currentMessages) => [
+      ...currentMessages,
+      userMessage,
+    ]);
+    setMessage("");
+    setErrorMessage("");
+    setIsSending(true);
+
+    try {
+      const response = await fetch("/api/chat", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          patientId: TEST_PATIENT_ID,
+          message: trimmedMessage,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Chat API request failed");
+      }
+
+      const data = (await response.json()) as {
+        reply?: unknown;
+      };
+
+      if (
+        typeof data.reply !== "string" ||
+        !data.reply.trim()
+      ) {
+        throw new Error("Invalid chat response");
+      }
+
+      const aiMessage: Message = {
+        id: crypto.randomUUID(),
+        sender: "ai",
+        text: data.reply.trim(),
+      };
+
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        aiMessage,
+      ]);
+    } catch {
+      setErrorMessage("网络不太好，请再试一次");
+    } finally {
+      setIsSending(false);
+    }
+  }
+
+  const visibleMessages = isSending
+    ? [
+        ...messages,
+        {
+          id: "loading",
+          sender: "ai" as const,
+          text: "正在思考...",
+        },
+      ]
+    : messages;
 
   return (
     <main className="flex min-h-dvh flex-col bg-[#f7f3ea] text-[#2d2924]">
@@ -66,12 +138,18 @@ export default function PatientPage() {
         className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 sm:py-8"
       >
         <div className="mx-auto flex w-full max-w-4xl flex-col gap-7">
-          {mockMessages.map((message) => {
-            const isPatient = message.sender === "patient";
+          {visibleMessages.length === 0 && (
+            <p className="mx-auto mt-12 rounded-3xl border border-dashed border-[#cfc3b3] bg-white/60 px-6 py-5 text-center text-xl leading-8 text-[#7a6f61]">
+              可以开始和忆伴说话了
+            </p>
+          )}
+
+          {visibleMessages.map((visibleMessage) => {
+            const isPatient = visibleMessage.sender === "patient";
 
             return (
               <div
-                key={message.id}
+                key={visibleMessage.id}
                 className={`flex ${
                   isPatient ? "justify-end" : "justify-start"
                 }`}
@@ -108,17 +186,28 @@ export default function PatientPage() {
                         : "rounded-bl-lg border border-[#e4dbcf] bg-white text-[#2d2924]"
                     }`}
                   >
-                    <p>{message.text}</p>
+                    <p>{visibleMessage.text}</p>
                   </div>
                 </div>
               </div>
             );
           })}
+
+          <div ref={messagesEndRef} />
         </div>
       </section>
 
       <footer className="sticky bottom-0 border-t border-[#dfd6c8] bg-[#fffdf8]/95 px-4 py-5 shadow-[0_-8px_24px_rgba(72,58,42,0.08)] backdrop-blur sm:px-8">
         <div className="mx-auto flex w-full max-w-4xl flex-col items-center gap-4">
+          {errorMessage && (
+            <p
+              role="alert"
+              className="w-full rounded-2xl bg-[#fff0ef] px-4 py-3 text-center text-base font-semibold text-[#a33a31]"
+            >
+              {errorMessage}
+            </p>
+          )}
+
           <button
             type="button"
             aria-label="按住说话"
@@ -148,12 +237,23 @@ export default function PatientPage() {
               <textarea
                 id="patient-message"
                 rows={2}
+                value={message}
+                onChange={(event) => setMessage(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void sendMessage();
+                  }
+                }}
                 placeholder="想说什么，就写在这里..."
-                className="min-h-[72px] flex-1 resize-none rounded-2xl border-2 border-[#cfc3b3] bg-white px-5 py-4 text-xl leading-8 text-[#2d2924] outline-none transition placeholder:text-[#9a8f81] focus:border-[#4f8f78] focus:ring-4 focus:ring-[#4f8f78]/20"
+                disabled={isSending}
+                className="min-h-[72px] flex-1 resize-none rounded-2xl border-2 border-[#cfc3b3] bg-white px-5 py-4 text-xl leading-8 text-[#2d2924] outline-none transition placeholder:text-[#9a8f81] focus:border-[#4f8f78] focus:ring-4 focus:ring-[#4f8f78]/20 disabled:cursor-not-allowed disabled:bg-[#f2eee7]"
               />
               <button
                 type="button"
-                className="min-h-14 rounded-2xl bg-[#4f8f78] px-7 text-lg font-bold text-white shadow-md transition hover:bg-[#3e7863] focus:outline-none focus:ring-4 focus:ring-[#4f8f78]/35 active:translate-y-px sm:min-w-28"
+                onClick={() => void sendMessage()}
+                disabled={isSending || !message.trim()}
+                className="min-h-14 rounded-2xl bg-[#4f8f78] px-7 text-lg font-bold text-white shadow-md transition hover:bg-[#3e7863] focus:outline-none focus:ring-4 focus:ring-[#4f8f78]/35 active:translate-y-px disabled:cursor-not-allowed disabled:bg-[#a8bdb4] sm:min-w-28"
               >
                 发送
               </button>
