@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import FamilyNav from "@/components/FamilyNav";
 
 type ReportClientProps = {
   supabaseUrl: string;
@@ -161,8 +162,8 @@ export default function ReportClient({
       report.confirmedMemories.length > 0);
 
   return (
-    <main className="min-h-dvh bg-[#f7f3ea] px-4 py-6 text-[#2d2924] sm:px-8 sm:py-10">
-      <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+    <main className="flex min-h-dvh flex-col bg-[#f7f3ea] text-[#2d2924]">
+      <div className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-6 px-4 py-6 sm:px-8 sm:py-10">
         <header className="rounded-[28px] border border-[#dfd6c8] bg-[#fffdf8] px-5 py-6 shadow-sm sm:px-8">
           <div className="flex items-center justify-between gap-4">
             <Link
@@ -293,6 +294,8 @@ export default function ReportClient({
           </>
         )}
       </div>
+
+      <FamilyNav />
     </main>
   );
 }

@@ -44,4 +44,5 @@ test("report page is card-based and mobile friendly", () => {
   assert.ok(clientSource.includes("text-xl"));
   assert.ok(clientSource.includes("text-2xl"));
   assert.ok(clientSource.includes("max-w-4xl"));
+  assert.ok(clientSource.includes("FamilyNav"));
 });

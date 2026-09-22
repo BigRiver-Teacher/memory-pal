@@ -27,6 +27,7 @@ test("family page uses current_patient_id with first-patient fallback", () => {
   assert.ok(clientSource.includes("← 返回患者管理"));
   assert.ok(clientSource.includes("切换患者"));
   assert.ok(clientSource.includes("patientName"));
+  assert.ok(clientSource.includes("FamilyNav"));
 });
 
 test("family page renders memory metadata and source labels", () => {

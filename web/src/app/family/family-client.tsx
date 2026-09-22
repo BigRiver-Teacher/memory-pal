@@ -4,6 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import FamilyNav from "@/components/FamilyNav";
 
 type FamilyClientProps = {
   supabaseUrl: string;
@@ -435,6 +436,8 @@ export default function FamilyClient({
           </div>
         </div>
       )}
+
+      <FamilyNav />
     </main>
   );
 }
