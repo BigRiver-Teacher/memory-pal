@@ -4,6 +4,8 @@ import { createClient } from "@supabase/supabase-js";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
+  Bar,
+  BarChart,
   CartesianGrid,
   Cell,
   Legend,
@@ -38,9 +40,30 @@ type QuestionDatum = {
   count: number;
 };
 
+type TopicDatum = {
+  keyword: string;
+  count: number;
+};
+
+type ActivePeriodDatum = {
+  name: string;
+  value: number;
+};
+
 type AnalyticsData = {
   emotionData: EmotionDatum[];
   questionData: QuestionDatum[];
+  emotionTrend: Array<Record<string, string | number>>;
+  emotionNames: string[];
+  memoryGrowth: QuestionDatum[];
+  topTopics: TopicDatum[];
+  activePeriods: ActivePeriodDatum[];
+  sufficiency: {
+    emotionTrend: boolean;
+    memoryGrowth: boolean;
+    topTopics: boolean;
+    activePeriods: boolean;
+  };
 };
 
 const CHART_COLORS = [
@@ -51,7 +74,16 @@ const CHART_COLORS = [
   "#7f9bb3",
   "#b77772",
   "#8a6fab",
+  "#6a9c89",
 ];
+
+function DataPending() {
+  return (
+    <p className="mt-8 rounded-2xl bg-[#f7f3ea] px-5 py-10 text-center text-xl text-[#8b7f70]">
+      数据积累中，再过几天就能看到趋势了。
+    </p>
+  );
+}
 
 export default function AnalyticsClient({
   supabaseUrl,
@@ -154,6 +186,11 @@ export default function AnalyticsClient({
       isActive = false;
     };
   }, [router, supabase]);
+
+  const activePeriodMax = Math.max(
+    1,
+    ...(analytics?.activePeriods.map((period) => period.value) ?? [0]),
+  );
 
   return (
     <main className="flex min-h-dvh flex-col bg-[#f7f3ea] text-[#2d2924]">
@@ -260,6 +297,146 @@ export default function AnalyticsClient({
                   </LineChart>
                 </ResponsiveContainer>
               </div>
+            </section>
+
+            <section className="rounded-[28px] border border-[#e4dbcf] bg-white p-5 shadow-sm sm:p-7">
+              <h2 className="text-2xl font-bold text-[#205c4b] sm:text-3xl">
+                情绪趋势
+              </h2>
+              <p className="mt-2 text-lg text-[#7a6f61]">
+                最近 7 天不同情绪的变化
+              </p>
+
+              {!analytics.sufficiency.emotionTrend ? (
+                <DataPending />
+              ) : (
+                <div className="mt-5 h-80 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart
+                      data={analytics.emotionTrend}
+                      margin={{ top: 10, right: 20, left: 0, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e7dfd4" />
+                      <XAxis dataKey="date" tick={{ fontSize: 14 }} />
+                      <YAxis
+                        allowDecimals={false}
+                        tick={{ fontSize: 14 }}
+                      />
+                      <Tooltip />
+                      <Legend />
+                      {analytics.emotionNames.map((emotion, index) => (
+                        <Line
+                          key={emotion}
+                          type="monotone"
+                          dataKey={emotion}
+                          name={emotion}
+                          stroke={CHART_COLORS[index % CHART_COLORS.length]}
+                          strokeWidth={3}
+                          dot={{ r: 4 }}
+                        />
+                      ))}
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[28px] border border-[#e4dbcf] bg-white p-5 shadow-sm sm:p-7">
+              <h2 className="text-2xl font-bold text-[#205c4b] sm:text-3xl">
+                记忆增长
+              </h2>
+              <p className="mt-2 text-lg text-[#7a6f61]">
+                最近 7 天每天新增的记忆
+              </p>
+
+              {!analytics.sufficiency.memoryGrowth ? (
+                <DataPending />
+              ) : (
+                <div className="mt-5 h-80 w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                      data={analytics.memoryGrowth}
+                      margin={{ top: 10, right: 20, left: 0, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e7dfd4" />
+                      <XAxis dataKey="date" tick={{ fontSize: 14 }} />
+                      <YAxis
+                        allowDecimals={false}
+                        tick={{ fontSize: 14 }}
+                      />
+                      <Tooltip />
+                      <Bar
+                        dataKey="count"
+                        name="新增记忆"
+                        fill="#4f8f78"
+                        radius={[8, 8, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[28px] border border-[#e4dbcf] bg-white p-5 shadow-sm sm:p-7">
+              <h2 className="text-2xl font-bold text-[#205c4b] sm:text-3xl">
+                高频话题
+              </h2>
+              <p className="mt-2 text-lg text-[#7a6f61]">
+                最近 7 天最常出现的关键词
+              </p>
+
+              {!analytics.sufficiency.topTopics ? (
+                <DataPending />
+              ) : (
+                <div className="mt-5 flex flex-wrap gap-3">
+                  {analytics.topTopics.map((topic, index) => (
+                    <span
+                      key={topic.keyword}
+                      className="rounded-full px-4 py-2 text-lg font-bold text-white"
+                      style={{
+                        backgroundColor:
+                          CHART_COLORS[index % CHART_COLORS.length],
+                      }}
+                    >
+                      {topic.keyword} · {topic.count}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section className="rounded-[28px] border border-[#e4dbcf] bg-white p-5 shadow-sm sm:p-7">
+              <h2 className="text-2xl font-bold text-[#205c4b] sm:text-3xl">
+                活跃时段
+              </h2>
+              <p className="mt-2 text-lg text-[#7a6f61]">
+                患者最常在什么时候提问
+              </p>
+
+              {!analytics.sufficiency.activePeriods ? (
+                <DataPending />
+              ) : (
+                <div className="mt-6 flex flex-col gap-6">
+                  {analytics.activePeriods.map((period, index) => (
+                    <div key={period.name}>
+                      <div className="flex items-center justify-between text-lg font-bold">
+                        <span>{period.name}</span>
+                        <span>{period.value} 次</span>
+                      </div>
+                      <div className="mt-2 h-5 overflow-hidden rounded-full bg-[#eee6db]">
+                        <div
+                          className="h-full rounded-full"
+                          style={{
+                            width: `${(period.value / activePeriodMax) * 100}%`,
+                            backgroundColor:
+                              CHART_COLORS[index % CHART_COLORS.length],
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
           </div>
         )}
