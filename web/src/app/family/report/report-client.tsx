@@ -2,7 +2,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import FamilyNav from "@/components/FamilyNav";
 import {
@@ -42,6 +42,7 @@ type ReportData = {
   questions: ConversationRow[];
   confirmedMemories: ConfirmedMemory[];
   advice: string;
+  hasReport?: boolean;
 };
 
 function formatTime(value: string): string {
@@ -59,10 +60,13 @@ function formatTime(value: string): string {
 
 async function fetchLatestReport(
   patientId: string,
+  dateKey: string,
 ): Promise<ReportData> {
-  const response = await fetch(
-    `/api/report?patientId=${encodeURIComponent(patientId)}`,
-  );
+  const query = new URLSearchParams({
+    patientId,
+    date: dateKey,
+  });
+  const response = await fetch(`/api/report?${query.toString()}`);
 
   if (!response.ok) {
     throw new Error("Report request failed");
@@ -75,6 +79,12 @@ export default function ReportClient({
   supabaseAnonKey,
 }: ReportClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const requestedDate = searchParams.get("date");
+  const reportDateKey =
+    requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)
+      ? requestedDate
+      : getShanghaiDateKey();
   const [supabase] = useState(() =>
     createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
@@ -143,7 +153,7 @@ export default function ReportClient({
           patients.find(
             (candidate) => candidate.id === storedPatientId,
           ) ?? patients[0];
-        const dateKey = getShanghaiDateKey();
+        const dateKey = reportDateKey;
 
         window.localStorage.setItem(
           "current_patient_id",
@@ -164,7 +174,7 @@ export default function ReportClient({
           displayedCachedReport = true;
         }
 
-        const latestReport = await fetchLatestReport(patient.id);
+        const latestReport = await fetchLatestReport(patient.id, dateKey);
 
         if (isActive) {
           setReport(latestReport);
@@ -186,7 +196,7 @@ export default function ReportClient({
     return () => {
       isActive = false;
     };
-  }, [router, supabase]);
+  }, [reportDateKey, router, supabase]);
 
   async function refreshReport() {
     if (!currentPatientId || !currentDateKey || isRefreshing) {
@@ -198,7 +208,7 @@ export default function ReportClient({
     setRefreshError("");
 
     try {
-      const latestReport = await fetchLatestReport(currentPatientId);
+      const latestReport = await fetchLatestReport(currentPatientId, currentDateKey);
       setReport(latestReport);
       writeReportCache(currentPatientId, currentDateKey, latestReport);
     } catch {
@@ -259,9 +269,17 @@ export default function ReportClient({
           <p className="mt-3 text-xl font-bold text-[#2d2924]">
             当前患者：{patientName || "正在加载..."}
           </p>
-          <p className="mt-2 text-lg font-medium text-[#5f5549] sm:text-xl">
-            {report?.date ?? "正在整理今天的数据..."}
-          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-4">
+            <p className="text-lg font-medium text-[#5f5549] sm:text-xl">
+              {report?.date ?? "正在整理当天数据..."}
+            </p>
+            <Link
+              href="/family/report/history"
+              className="text-base font-bold text-[#9c6b3f] underline decoration-[#d5b18d] underline-offset-4 sm:text-lg"
+            >
+              查看历史
+            </Link>
+          </div>
         </header>
 
         {isLoading && (
@@ -279,7 +297,13 @@ export default function ReportClient({
           </p>
         )}
 
-        {!isLoading && !errorMessage && report && (
+        {!isLoading && !errorMessage && report?.hasReport === false && (
+          <p className="rounded-3xl border border-dashed border-[#cfc3b3] bg-white/75 px-6 py-10 text-center text-xl leading-9 text-[#7a6f61]">
+            这一天还没有日报记录。
+          </p>
+        )}
+
+        {!isLoading && !errorMessage && report && report.hasReport !== false && (
           <>
             {!hasTodayData && (
               <p className="rounded-3xl border border-dashed border-[#cfc3b3] bg-white/75 px-6 py-10 text-center text-xl leading-9 text-[#7a6f61]">

@@ -89,28 +89,47 @@ function getShanghaiDateParts(date: Date): {
   };
 }
 
-function getTodayRange(): {
+function getReportDayRange(requestedDate?: string): {
   start: string;
   end: string;
   reportDate: string;
   dateLabel: string;
-} {
-  const now = new Date();
-  const { year, month, day } = getShanghaiDateParts(now);
-  const start = new Date(`${year}-${month}-${day}T00:00:00+08:00`);
-  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  isToday: boolean;
+} | null {
+  const today = new Date();
+  const todayParts = getShanghaiDateParts(today);
+  const todayKey = `${todayParts.year}-${todayParts.month}-${todayParts.day}`;
+  const reportDate = requestedDate?.trim() || todayKey;
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(reportDate)) {
+    return null;
+  }
+
+  const start = new Date(`${reportDate}T00:00:00+08:00`);
+
+  if (Number.isNaN(start.getTime())) {
+    return null;
+  }
+
+  const normalized = getShanghaiDateParts(start);
+  const normalizedKey = `${normalized.year}-${normalized.month}-${normalized.day}`;
+
+  if (normalizedKey !== reportDate) {
+    return null;
+  }
 
   return {
     start: start.toISOString(),
-    end: end.toISOString(),
-    reportDate: `${year}-${month}-${day}`,
+    end: new Date(start.getTime() + 24 * 60 * 60 * 1000).toISOString(),
+    reportDate,
     dateLabel: new Intl.DateTimeFormat("zh-CN", {
       timeZone: "Asia/Shanghai",
       year: "numeric",
       month: "long",
       day: "numeric",
       weekday: "long",
-    }).format(now),
+    }).format(start),
+    isToday: reportDate === todayKey,
   };
 }
 
@@ -407,17 +426,39 @@ export async function GET(request: Request): Promise<Response> {
       );
     }
 
+    const requestedDate = new URL(request.url).searchParams.get("date");
+    const dayRange = getReportDayRange(
+      requestedDate ?? undefined,
+    );
+
+    if (!dayRange) {
+      return Response.json(
+        { error: "date 参数格式必须是 YYYY-MM-DD。" },
+        { status: 400 },
+      );
+    }
+
     const siliconflowApiKey = getRequiredEnv(
       "SILICONFLOW_API_KEY",
     );
     const deepseekApiKey = getRequiredEnv("DEEPSEEK_API_KEY");
     const supabase = createSupabaseClient();
-    const { start, end, reportDate, dateLabel } = getTodayRange();
+    const { start, end, reportDate, dateLabel, isToday } = dayRange;
     const cachedAdvice = await getCachedAdvice(
       supabase,
       patientId,
       reportDate,
     );
+
+    if (!cachedAdvice && !isToday) {
+      return Response.json({
+        date: dateLabel,
+        questions: [],
+        confirmedMemories: [],
+        advice: "",
+        hasReport: false,
+      });
+    }
 
     const { data: questionData, error: questionError } =
       await supabase
@@ -484,6 +525,7 @@ export async function GET(request: Request): Promise<Response> {
       questions,
       confirmedMemories,
       advice,
+      hasReport: Boolean(advice),
     });
   } catch (error) {
     console.error("Report API error:", error);

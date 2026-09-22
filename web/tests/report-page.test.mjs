@@ -21,11 +21,16 @@ test("report page resolves the current patient", () => {
   assert.ok(clientSource.includes("current_patient_id"));
   assert.ok(clientSource.includes("window.localStorage.getItem"));
   assert.ok(clientSource.includes("?? patients[0]"));
-  assert.ok(clientSource.includes("/api/report?patientId="));
+  assert.ok(clientSource.includes("new URLSearchParams"));
+  assert.ok(clientSource.includes("fetchLatestReport(patient.id, dateKey)"));
   assert.ok(clientSource.includes("readReportCache"));
   assert.ok(clientSource.includes("writeReportCache"));
   assert.ok(clientSource.includes("clearReportCachesForPatient"));
   assert.ok(clientSource.includes("刷新日报"));
+  assert.ok(clientSource.includes("useSearchParams"));
+  assert.ok(clientSource.includes("searchParams.get(\"date\")"));
+  assert.ok(clientSource.includes('href="/family/report/history"'));
+  assert.ok(clientSource.includes("这一天还没有日报记录。"));
 });
 
 test("report page contains all three report sections", () => {
