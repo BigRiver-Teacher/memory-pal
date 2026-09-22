@@ -45,6 +45,8 @@ test("family page supports editing and deleting memories", () => {
   assert.ok(clientSource.includes("Authorization: `Bearer ${accessToken}`"));
   assert.ok(clientSource.includes("确定删除这条记忆吗？删除后无法恢复"));
   assert.ok(clientSource.includes("保存修改"));
+  assert.ok(clientSource.includes("`/family/memory/${memory.id}`"));
+  assert.ok(clientSource.includes("event.stopPropagation()"));
   assert.ok(clientSource.includes("refreshMemories"));
 });
 

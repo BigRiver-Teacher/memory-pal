@@ -447,7 +447,18 @@ export default function FamilyClient({
               return (
                 <article
                   key={memory.id}
-                  className="rounded-3xl border border-[#e4dbcf] bg-white p-5 shadow-sm sm:p-6"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() =>
+                    router.push(`/family/memory/${memory.id}`)
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      router.push(`/family/memory/${memory.id}`);
+                    }
+                  }}
+                  className="cursor-pointer rounded-3xl border border-[#e4dbcf] bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-[#4f8f78]/25 sm:p-6"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <p className="flex-1 text-xl leading-9 text-[#2d2924] sm:text-2xl">
@@ -456,14 +467,20 @@ export default function FamilyClient({
                     <div className="flex shrink-0 gap-2">
                       <button
                         type="button"
-                        onClick={() => startEditingMemory(memory)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          startEditingMemory(memory);
+                        }}
                         className="min-h-9 rounded-xl bg-[#eef7f2] px-3 text-sm font-bold text-[#205c4b] transition hover:bg-[#dcece5]"
                       >
                         编辑
                       </button>
                       <button
                         type="button"
-                        onClick={() => void deleteMemory(memory)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          void deleteMemory(memory);
+                        }}
                         disabled={deletingMemoryId === memory.id}
                         className="min-h-9 rounded-xl bg-[#fff0ef] px-3 text-sm font-bold text-[#a33a31] transition hover:bg-[#ffe0dd] disabled:cursor-not-allowed disabled:opacity-60"
                       >
