@@ -40,6 +40,7 @@ export default function FamilyNav() {
             <Link
               key={item.href}
               href={item.href}
+              prefetch
               aria-current={isActive ? "page" : undefined}
               className={`flex min-h-16 flex-col items-center justify-center rounded-2xl px-3 text-lg font-bold transition focus:outline-none focus:ring-4 focus:ring-[#4f8f78]/25 ${
                 isActive

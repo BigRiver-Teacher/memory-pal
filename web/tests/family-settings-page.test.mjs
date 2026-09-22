@@ -30,6 +30,9 @@ test("settings page updates family nickname in auth metadata", () => {
 test("settings page shows current patient and navigation entries", () => {
   assert.ok(clientSource.includes('.eq("owner_id", userData.user.id)'));
   assert.ok(clientSource.includes("current_patient_id"));
+  assert.ok(clientSource.includes("family_contact"));
+  assert.ok(clientSource.includes("未填写"));
+  assert.ok(clientSource.includes("联系方式："));
   assert.ok(clientSource.includes("绑定时间"));
   assert.ok(clientSource.includes('href="/family/patients"'));
   assert.ok(clientSource.includes('href="/patient/bind"'));

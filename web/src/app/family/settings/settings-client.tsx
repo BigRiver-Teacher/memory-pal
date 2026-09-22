@@ -14,6 +14,7 @@ type SettingsClientProps = {
 type PatientRow = {
   id: string;
   name: string;
+  family_contact: string | null;
   created_at: string;
 };
 
@@ -87,7 +88,7 @@ export default function SettingsClient({
         const { data: patientData, error: patientError } =
           await supabase
             .from("patients")
-            .select("id, name, created_at")
+            .select("id, name, family_contact, created_at")
             .eq("owner_id", userData.user.id)
             .order("created_at", { ascending: true });
 
@@ -271,7 +272,10 @@ export default function SettingsClient({
                   <p className="text-2xl font-bold text-[#2d2924]">
                     {patient.name}
                   </p>
-                  <p className="mt-3 text-base font-medium text-[#8b7f70] sm:text-lg">
+                  <p className="mt-3 text-lg font-medium text-[#5f5549]">
+                    联系方式：{patient.family_contact?.trim() || "未填写"}
+                  </p>
+                  <p className="mt-2 text-base font-medium text-[#8b7f70] sm:text-lg">
                     绑定时间：{formatCreatedAt(patient.created_at)}
                   </p>
                 </div>

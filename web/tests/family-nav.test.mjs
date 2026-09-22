@@ -23,6 +23,9 @@ test("family navigation has memory, report and settings links", () => {
   assert.ok(navSource.includes('href: "/family/report"'));
   assert.ok(navSource.includes('href: "/family/settings"'));
   assert.ok(navSource.includes("usePathname"));
+  assert.ok(navSource.includes("prefetch"));
+  assert.ok(navSource.includes("<Link"));
+  assert.ok(!navSource.includes("<a"));
   assert.ok(navSource.includes('aria-current={isActive ? "page" : undefined}'));
 });
 
