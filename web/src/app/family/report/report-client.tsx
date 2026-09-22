@@ -86,7 +86,10 @@ export default function ReportClient({
       ? requestedDate
       : getShanghaiDateKey();
   const [supabase] = useState(() =>
-    createClient(supabaseUrl, supabaseAnonKey, {
+    createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL ?? supabaseUrl,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? supabaseAnonKey,
+      {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
