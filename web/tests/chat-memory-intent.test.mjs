@@ -82,3 +82,9 @@ test("chat route prioritizes high-confidence memories after similarity filtering
   assert.match(routeSource, /confidence > 0\.7/);
   assert.match(routeSource, /right\.similarity - left\.similarity/);
 });
+
+test("chat route filters low-confidence and weak legacy memories", () => {
+  assert.match(routeSource, /memory\.confidence !== null/);
+  assert.match(routeSource, /memory\.confidence >= 0\.5/);
+  assert.match(routeSource, /memory\.similarity >= 0\.6/);
+});

@@ -337,6 +337,13 @@ async function retrieveMemories(
       ...memory,
       confidence: confidenceById.get(memory.memory_id) ?? null,
     }))
+    .filter((memory) => {
+      if (memory.confidence !== null) {
+        return memory.confidence >= 0.5;
+      }
+
+      return memory.similarity >= 0.6;
+    })
     .sort((left, right) => {
       const leftPreferred =
         left.confidence !== null && left.confidence > 0.7 ? 1 : 0;
