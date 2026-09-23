@@ -30,6 +30,40 @@ const SPECULATION_WORDS = [
   "恐怕",
   "没准",
 ];
+const LOCATION_ENTITY_WORDS = [
+  "南京",
+  "北京",
+  "上海",
+  "广州",
+  "深圳",
+  "杭州",
+  "苏州",
+  "成都",
+  "重庆",
+  "西安",
+  "武汉",
+  "天津",
+  "老家",
+  "家里",
+  "学校",
+  "医院",
+  "公园",
+];
+const PERSON_ENTITY_WORDS = [
+  "女儿",
+  "儿子",
+  "孙子",
+  "孙女",
+  "老伴",
+  "妻子",
+  "丈夫",
+  "妈妈",
+  "爸爸",
+  "小芳",
+  "老师",
+  "学生",
+];
+
 const TESTING_QUESTION_PATTERNS = [
   "还记得我是谁",
   "知道我是谁",
@@ -42,11 +76,20 @@ type ChatRequestBody = {
   message: string;
 };
 
+type PatientIntent =
+  | "location"
+  | "person"
+  | "memory"
+  | "story"
+  | "datetime"
+  | "other";
+
 type MemoryMatch = {
   memory_id: string;
   content: string;
   similarity: number;
   confidence: number | null;
+  entities: string[] | null;
 };
 
 type ChatMessage = {
@@ -265,6 +308,70 @@ function formatConversationContext(
     .join("\n");
 }
 
+function classifyIntentByRules(
+  message: string,
+  conversationHistory: ChatMessage[],
+): PatientIntent | null {
+  if (/哪去|去哪|在哪|什么地方|哪里|哪儿/.test(message)) {
+    return "location";
+  }
+
+  if (/谁|叫什么|什么时候来|来看我|会来吗/.test(message)) {
+    return "person";
+  }
+
+  if (
+    isDateTimeQuestion(message) ||
+    contextSuggestsDateTime(message, conversationHistory)
+  ) {
+    return "datetime";
+  }
+
+  if (/吃了吗|做了吗|是不是|有没有|干什么|做什么|是什么/.test(message)) {
+    return "memory";
+  }
+
+  if (
+    /^我/.test(message.trim()) &&
+    /以前|年轻|小时候|当年|当时|曾经/.test(message)
+  ) {
+    return "story";
+  }
+
+  return null;
+}
+
+function isLocationEntity(entity: string): boolean {
+  return (
+    LOCATION_ENTITY_WORDS.some((word) => entity.includes(word)) ||
+    /(省|市|区|县|镇|村|路|街|公园|医院|学校|老家)$/.test(entity)
+  );
+}
+
+function isPersonEntity(entity: string): boolean {
+  return PERSON_ENTITY_WORDS.some(
+    (word) => entity.includes(word) || word.includes(entity),
+  );
+}
+
+function filterMemoriesByIntent(
+  memories: MemoryMatch[],
+  intent: PatientIntent,
+): MemoryMatch[] {
+  if (intent === "location") {
+    return memories.filter((memory) =>
+      (memory.entities ?? []).some(isLocationEntity),
+    );
+  }
+
+  if (intent === "person") {
+    return memories.filter((memory) =>
+      (memory.entities ?? []).some(isPersonEntity),
+    );
+  }
+
+  return memories;
+}
 function contextSuggestsDateTime(
   message: string,
   conversationHistory: ChatMessage[],
@@ -314,7 +421,7 @@ async function retrieveMemories(
   const { data: confidenceData, error: confidenceError } =
     await supabase
       .from("memories")
-      .select("id, confidence")
+      .select("id, confidence, entities")
       .in("id", memoryIds);
 
   if (confidenceError) {
@@ -328,15 +435,20 @@ async function retrieveMemories(
       (confidenceData ?? []) as Array<{
         id: string;
         confidence: number | null;
+        entities: string[] | null;
       }>
-    ).map((memory) => [memory.id, memory.confidence]),
+    ).map((memory) => [memory.id, memory]),
   );
 
   return relevantMemories
-    .map((memory) => ({
-      ...memory,
-      confidence: confidenceById.get(memory.memory_id) ?? null,
-    }))
+    .map((memory) => {
+      const metadata = confidenceById.get(memory.memory_id);
+      return {
+        ...memory,
+        confidence: metadata?.confidence ?? null,
+        entities: metadata?.entities ?? null,
+      };
+    })
     .filter((memory) => {
       if (memory.confidence !== null) {
         return memory.confidence >= 0.5;
@@ -432,15 +544,18 @@ async function classifyPatientIntent(
   apiKey: string,
   message: string,
   conversationHistory: ChatMessage[],
-): Promise<"memory" | "story" | "datetime" | "other"> {
+): Promise<PatientIntent> {
   const contextText = formatConversationContext(conversationHistory);
   const result = await requestDeepSeekJson(apiKey, [
     {
       role: "system",
       content:
         "你负责判断长辈话语的意图，并且只输出 json 对象。" +
-        '格式必须是 {"intent":"memory"}、{"intent":"story"}、' +
+        '格式必须是 {"intent":"location"}、{"intent":"person"}、' +
+        '{"intent":"memory"}、{"intent":"story"}、' +
         '{"intent":"datetime"} 或 {"intent":"other"}。' +
+        "如果长辈在询问地点，输出 location。" +
+        "如果长辈在询问某个人、姓名或某人何时来，输出 person。" +
         "如果长辈在确认一段记忆，输出 memory。" +
         "如果长辈在主动讲述过去经历、故事或生活片段，输出 story。" +
         "如果长辈在询问日期、星期、时间、节日日期或倒计时，输出 datetime。" +
@@ -456,7 +571,9 @@ async function classifyPatientIntent(
 
   if (
     isRecord(result) &&
-    (result.intent === "memory" ||
+    (result.intent === "location" ||
+      result.intent === "person" ||
+      result.intent === "memory" ||
       result.intent === "story" ||
       result.intent === "datetime" ||
       result.intent === "other")
@@ -720,16 +837,18 @@ export async function POST(request: Request): Promise<Response> {
       supabase,
       body.patientId,
     );
-    const classifiedIntent = await classifyPatientIntent(
-      deepseekApiKey,
+    const ruleIntent = classifyIntentByRules(
       body.message,
       conversationHistory,
     );
-    const intent =
-      isDateTimeQuestion(body.message) ||
-      contextSuggestsDateTime(body.message, conversationHistory)
-        ? "datetime"
-        : classifiedIntent;
+    const classifiedIntent =
+      ruleIntent ??
+      (await classifyPatientIntent(
+        deepseekApiKey,
+        body.message,
+        conversationHistory,
+      ));
+    const intent = ruleIntent ?? classifiedIntent;
 
     if (intent === "datetime") {
       const reply = await generateDateTimeReply(
@@ -789,8 +908,9 @@ export async function POST(request: Request): Promise<Response> {
       body.patientId,
       queryEmbedding,
     );
+    const filteredMemories = filterMemoriesByIntent(memories, intent);
     const reply =
-      memories.length > 0
+      filteredMemories.length > 0
         ? await generateReply(
             deepseekApiKey,
             body.message,

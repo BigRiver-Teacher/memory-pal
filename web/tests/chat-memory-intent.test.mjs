@@ -16,7 +16,9 @@ test("chat route filters memory similarity and keeps the fallback", () => {
 });
 
 test("chat route recognizes datetime intent with keyword fallback", () => {
-  assert.match(routeSource, /"memory" \| "story" \| "datetime" \| "other"/);
+  for (const intent of ["location", "person", "memory", "story", "datetime", "other"]) {
+    assert.match(routeSource, new RegExp(`"${intent}"`));
+  }
   assert.match(routeSource, /isDateTimeQuestion/);
   assert.match(routeSource, /几号\|星期几\|周几\|几点\|什么时候/);
   assert.match(routeSource, /中秋/);
@@ -87,4 +89,22 @@ test("chat route filters low-confidence and weak legacy memories", () => {
   assert.match(routeSource, /memory\.confidence !== null/);
   assert.match(routeSource, /memory\.confidence >= 0\.5/);
   assert.match(routeSource, /memory\.similarity >= 0\.5/);
+});
+
+test("chat route classifies location and person intents", () => {
+  assert.match(routeSource, /"location"/);
+  assert.match(routeSource, /"person"/);
+  assert.match(routeSource, /哪去\|去哪\|在哪\|什么地方\|哪里\|哪儿/);
+  assert.match(routeSource, /谁\|叫什么\|什么时候来/);
+  assert.match(routeSource, /classifyIntentByRules/);
+});
+
+test("chat route filters location and person memories by entities", () => {
+  assert.match(routeSource, /LOCATION_ENTITY_WORDS/);
+  assert.match(routeSource, /PERSON_ENTITY_WORDS/);
+  assert.match(routeSource, /isLocationEntity/);
+  assert.match(routeSource, /isPersonEntity/);
+  assert.match(routeSource, /filterMemoriesByIntent/);
+  assert.match(routeSource, /memory\.entities/);
+  assert.match(routeSource, /filteredMemories\.length > 0/);
 });
