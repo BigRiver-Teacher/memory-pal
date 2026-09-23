@@ -342,7 +342,7 @@ async function retrieveMemories(
         return memory.confidence >= 0.5;
       }
 
-      return memory.similarity >= 0.6;
+      return memory.similarity >= 0.5;
     })
     .sort((left, right) => {
       const leftPreferred =
