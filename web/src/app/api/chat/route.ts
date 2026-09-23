@@ -52,6 +52,14 @@ type ChatMessage = {
   content: string;
 };
 
+type MemoryExtraction = {
+  entities: string[];
+  emotion: string;
+  confidence: number;
+  source_text: string;
+  source_offset: number;
+};
+
 function getRequiredEnv(name: string): string {
   const value = process.env[name];
 
@@ -432,14 +440,19 @@ async function generateDateTimeReply(
 async function extractMemoryAnchors(
   apiKey: string,
   message: string,
-): Promise<{ entities: string[]; emotion: string }> {
+): Promise<MemoryExtraction> {
   const result = await requestDeepSeekJson(apiKey, [
     {
       role: "system",
       content:
-        "请从长辈讲述中提取记忆锚点，并且只输出 json 对象。" +
-        '格式必须是 {"entities": [], "emotion": ""}。' +
-        "entities 是人物、地点、事件、物品等关键词数组，emotion 是情绪词。",
+        "你是严格的结构化记忆提取器。只输出 json 对象，不要输出 markdown。" +
+        "JSON Schema 必须为：" +
+        '{"entities":[],"emotion":"","confidence":0.0,"source_text":""}。' +
+        "entities 是人物、地点、事件、物品等关键词数组。" +
+        "每个 entity 都必须是原文中连续出现的文字，不得推断、改写或补充同义词。" +
+        "emotion 是原文明确表达的简短情绪词；没有明确情绪时输出空字符串。" +
+        "confidence 是 0 到 1 的提取置信度。" +
+        "source_text 必须是与输入完全一致的连续原文片段，用于定位记忆来源。",
     },
     {
       role: "user",
@@ -448,18 +461,50 @@ async function extractMemoryAnchors(
   ]);
 
   if (!isRecord(result)) {
-    return { entities: [], emotion: "" };
+    return {
+      entities: [],
+      emotion: "",
+      confidence: 0,
+      source_text: message,
+      source_offset: 0,
+    };
   }
 
+  const requestedSourceText =
+    typeof result.source_text === "string"
+      ? result.source_text.trim()
+      : "";
+  const sourceText =
+    requestedSourceText && message.includes(requestedSourceText)
+      ? requestedSourceText
+      : message;
+  const sourceOffset = Math.max(message.indexOf(sourceText), 0);
   const entities = Array.isArray(result.entities)
-    ? result.entities.filter(
-        (entity): entity is string => typeof entity === "string",
-      )
+    ? [
+        ...new Set(
+          result.entities
+            .filter((entity): entity is string => typeof entity === "string")
+            .map((entity) => entity.trim())
+            .filter((entity) => entity && message.includes(entity)),
+        ),
+      ]
     : [];
-  const emotion =
-    typeof result.emotion === "string" ? result.emotion : "";
+  const rawConfidence =
+    typeof result.confidence === "number"
+      ? result.confidence
+      : Number(result.confidence);
+  const confidence = Number.isFinite(rawConfidence)
+    ? Math.min(1, Math.max(0, rawConfidence))
+    : 0;
 
-  return { entities, emotion };
+  return {
+    entities,
+    emotion:
+      typeof result.emotion === "string" ? result.emotion.trim() : "",
+    confidence,
+    source_text: sourceText,
+    source_offset: sourceOffset,
+  };
 }
 
 async function storeStoryMemory(
@@ -467,7 +512,7 @@ async function storeStoryMemory(
   patientId: string,
   message: string,
   embedding: number[],
-  metadata: { entities: string[]; emotion: string },
+  metadata: MemoryExtraction,
 ): Promise<void> {
   const { data, error: selectError } = await supabase
     .from("memories")
@@ -494,6 +539,9 @@ async function storeStoryMemory(
       embedding,
       emotion: metadata.emotion || null,
       entities: metadata.entities,
+      confidence: metadata.confidence,
+      source_text: metadata.source_text,
+      source_offset: metadata.source_offset,
       source: "patient",
     });
 
@@ -609,6 +657,7 @@ export async function POST(request: Request): Promise<Response> {
     );
 
     const isTestMode = isTestModeEnabled();
+    let memoryPending = false;
     const conversationHistory = await getRecentConversationContext(
       supabase,
       body.patientId,
@@ -640,7 +689,15 @@ export async function POST(request: Request): Promise<Response> {
         );
       }
 
-      return Response.json({ reply });
+      return Response.json({
+      reply,
+      ...(memoryPending
+        ? {
+            memoryPending: true,
+            status: "待确认",
+          }
+        : {}),
+    });
     }
 
     const queryEmbedding = await createEmbedding(
@@ -655,13 +712,17 @@ export async function POST(request: Request): Promise<Response> {
       );
 
       if (!isTestMode) {
-        await storeStoryMemory(
-          supabase,
-          body.patientId,
-          body.message,
-          queryEmbedding,
-          metadata,
-        );
+        if (metadata.confidence >= 0.5) {
+          await storeStoryMemory(
+            supabase,
+            body.patientId,
+            body.message,
+            queryEmbedding,
+            metadata,
+          );
+        } else {
+          memoryPending = true;
+        }
       }
     }
 
@@ -689,7 +750,15 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
-    return Response.json({ reply });
+    return Response.json({
+      reply,
+      ...(memoryPending
+        ? {
+            memoryPending: true,
+            status: "待确认",
+          }
+        : {}),
+    });
   } catch (error) {
     console.error("Chat API error:", error);
 

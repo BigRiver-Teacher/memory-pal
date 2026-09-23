@@ -64,3 +64,13 @@ test("chat route uses context for intent and reply messages", () => {
     /generateReply\([\s\S]*conversationHistory/,
   );
 });
+
+test("story extraction writes confidence and source grounding", () => {
+  assert.match(routeSource, /MemoryExtraction/);
+  assert.match(routeSource, /"confidence":0\.0/);
+  assert.match(routeSource, /entity && message\.includes\(entity\)/);
+  assert.match(routeSource, /metadata\.confidence >= 0\.5/);
+  assert.match(routeSource, /source_text: metadata\.source_text/);
+  assert.match(routeSource, /source_offset: metadata\.source_offset/);
+  assert.match(routeSource, /memoryPending/);
+});

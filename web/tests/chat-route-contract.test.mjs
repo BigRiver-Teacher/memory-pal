@@ -12,7 +12,7 @@ test("chat route defines the required POST contract", () => {
   assert.match(routeSource, /export async function POST/);
   assert.match(routeSource, /patientId/);
   assert.match(routeSource, /message/);
-  assert.match(routeSource, /Response\.json\(\{ reply \}\)/);
+  assert.match(routeSource, /Response\.json\(\{\s*reply,/);
 });
 
 test("chat route keeps the test_chat prompt constraints", () => {

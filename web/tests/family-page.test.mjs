@@ -48,6 +48,7 @@ test("family page supports editing and deleting memories", () => {
   assert.ok(clientSource.includes("`/family/memory/${memory.id}`"));
   assert.ok(clientSource.includes("event.stopPropagation()"));
   assert.ok(clientSource.includes("refreshMemories"));
+  assert.ok(clientSource.includes("data.pending"));
 });
 
 test("family page renders large memory cards and add dialog", () => {

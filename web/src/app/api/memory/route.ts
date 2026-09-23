@@ -18,11 +18,17 @@ type MemoryRow = {
   emotion: string | null;
   entities: string[] | null;
   source: string | null;
+  confidence: number | null;
+  source_text: string | null;
+  source_offset: number | null;
 };
 
 type MemoryMetadata = {
   emotion: string;
   entities: string[];
+  confidence: number;
+  source_text: string;
+  source_offset: number;
 };
 
 type CreateMemoryBody = {
@@ -138,10 +144,14 @@ async function extractMemoryMetadata(
         {
           role: "system",
           content:
-            "请从家属录入的记忆中提取情绪和关联人物，" +
-            "并且只输出 json 对象。" +
-            '格式必须是 {"emotion":"","entities":[]}。' +
-            "emotion 是简短情绪词；entities 是人物、地点、物品等关键词数组。",
+            "你是严格的结构化记忆提取器。只输出 json 对象，不要输出 markdown。" +
+            "JSON Schema 必须为：" +
+            '{"entities":[],"emotion":"","confidence":0.0,"source_text":""}。' +
+            "entities 是人物、地点、事件、物品等关键词数组。" +
+            "每个 entity 都必须是原文中连续出现的文字，不得推断、改写或补充同义词。" +
+            "emotion 是原文明确表达的简短情绪词；没有明确情绪时输出空字符串。" +
+            "confidence 是 0 到 1 的提取置信度。" +
+            "source_text 必须是与输入完全一致的连续原文片段，用于定位记忆来源。",
         },
         {
           role: "user",
@@ -172,19 +182,51 @@ async function extractMemoryMetadata(
   const parsed = JSON.parse(responseContent) as unknown;
 
   if (!isRecord(parsed)) {
-    return { emotion: "", entities: [] };
+    return {
+      emotion: "",
+      entities: [],
+      confidence: 0,
+      source_text: content,
+      source_offset: 0,
+    };
   }
+
+  const requestedSourceText =
+    typeof parsed.source_text === "string"
+      ? parsed.source_text.trim()
+      : "";
+  const sourceText =
+    requestedSourceText && content.includes(requestedSourceText)
+      ? requestedSourceText
+      : content;
+  const sourceOffset = Math.max(content.indexOf(sourceText), 0);
+  const entities = Array.isArray(parsed.entities)
+    ? [
+        ...new Set(
+          parsed.entities
+            .filter((entity): entity is string => typeof entity === "string")
+            .map((entity) => entity.trim())
+            .filter((entity) => entity && content.includes(entity)),
+        ),
+      ]
+    : [];
+  const rawConfidence =
+    typeof parsed.confidence === "number"
+      ? parsed.confidence
+      : Number(parsed.confidence);
+  const confidence = Number.isFinite(rawConfidence)
+    ? Math.min(1, Math.max(0, rawConfidence))
+    : 0;
 
   return {
     emotion:
       typeof parsed.emotion === "string"
         ? parsed.emotion.trim()
         : "",
-    entities: Array.isArray(parsed.entities)
-      ? parsed.entities.filter(
-          (entity): entity is string => typeof entity === "string",
-        )
-      : [],
+    entities,
+    confidence,
+    source_text: sourceText,
+    source_offset: sourceOffset,
   };
 }
 async function getAuthenticatedUser(
@@ -259,7 +301,7 @@ async function findExistingMemory(
 ): Promise<MemoryRow | null> {
   const { data, error } = await supabase
     .from("memories")
-    .select("id, content, created_at, emotion, entities, source")
+    .select("id, content, created_at, emotion, entities, source, confidence, source_text, source_offset")
     .eq("patient_id", patientId)
     .eq("content", content)
     .limit(1);
@@ -287,7 +329,7 @@ export async function GET(request: Request): Promise<Response> {
     const supabase = createSupabaseClient();
     const { data, error } = await supabase
       .from("memories")
-      .select("id, content, created_at, emotion, entities, source")
+      .select("id, content, created_at, emotion, entities, source, confidence, source_text, source_offset")
       .eq("patient_id", patientId)
       .order("created_at", { ascending: false });
 
@@ -334,6 +376,20 @@ export async function POST(request: Request): Promise<Response> {
     }
 
     const metadata = await extractMemoryMetadata(body.content);
+
+    if (metadata.confidence < 0.5) {
+      return Response.json(
+        {
+          memory: null,
+          pending: true,
+          status: "待确认",
+          message: "这条记忆置信度较低，已标记为待确认，暂未写入。",
+          metadata,
+        },
+        { status: 202 },
+      );
+    }
+
     const embedding = await createEmbedding(body.content);
     const { data, error } = await supabase
       .from("memories")
@@ -343,9 +399,12 @@ export async function POST(request: Request): Promise<Response> {
         embedding,
         emotion: metadata.emotion || null,
         entities: metadata.entities,
+        confidence: metadata.confidence,
+        source_text: metadata.source_text,
+        source_offset: metadata.source_offset,
         source: "family",
       })
-      .select("id, content, created_at, emotion, entities, source")
+      .select("id, content, created_at, emotion, entities, source, confidence, source_text, source_offset")
       .single();
 
     if (error) {
@@ -408,10 +467,22 @@ export async function PUT(request: Request): Promise<Response> {
       );
     }
 
-    const [metadata, embedding] = await Promise.all([
-      extractMemoryMetadata(content),
-      createEmbedding(content),
-    ]);
+    const metadata = await extractMemoryMetadata(content);
+
+    if (metadata.confidence < 0.5) {
+      return Response.json(
+        {
+          memory: null,
+          pending: true,
+          status: "待确认",
+          message: "这条记忆置信度较低，已标记为待确认，暂未更新。",
+          metadata,
+        },
+        { status: 202 },
+      );
+    }
+
+    const embedding = await createEmbedding(content);
     const { data, error } = await supabase
       .from("memories")
       .update({
@@ -419,9 +490,12 @@ export async function PUT(request: Request): Promise<Response> {
         embedding,
         emotion: metadata.emotion || null,
         entities: metadata.entities,
+        confidence: metadata.confidence,
+        source_text: metadata.source_text,
+        source_offset: metadata.source_offset,
       })
       .eq("id", memoryId)
-      .select("id, content, created_at, emotion, entities, source")
+      .select("id, content, created_at, emotion, entities, source, confidence, source_text, source_offset")
       .single();
 
     if (error) {

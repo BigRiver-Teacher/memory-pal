@@ -328,7 +328,17 @@ export default function FamilyClient({
 
       const data = (await response.json()) as {
         memory?: MemoryRow;
+        pending?: boolean;
+        message?: string;
       };
+
+      if (data.pending) {
+        setSaveError(
+          data.message ||
+            "这条记忆已标记为待确认，暂未写入。",
+        );
+        return;
+      }
 
       if (!data.memory) {
         throw new Error("Invalid memory response");

@@ -41,3 +41,12 @@ test("memory route checks duplicates before inserting", () => {
   assert.match(routeSource, /\.insert\(/);
   assert.match(routeSource, /embedding,/);
 });
+
+test("memory extraction uses strict schema and low-confidence gating", () => {
+  assert.match(routeSource, /"confidence":0\.0/);
+  assert.match(routeSource, /source_text/);
+  assert.match(routeSource, /source_offset/);
+  assert.match(routeSource, /entity && content\.includes\(entity\)/);
+  assert.match(routeSource, /metadata\.confidence < 0\.5/);
+  assert.match(routeSource, /status: "待确认"/);
+});
