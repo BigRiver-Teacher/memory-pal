@@ -11,7 +11,7 @@ const SILICONFLOW_EMBEDDINGS_URL =
 const EMBEDDING_MODEL = "BAAI/bge-m3";
 const EXPECTED_DIMENSION = 1024;
 
-const MAX_REPLY_LENGTH = 50;
+const MAX_REPLY_LENGTH = 100;
 const MAX_REPLY_ATTEMPTS = 3;
 const MIN_SIMILARITY = 0.5;
 const FALLBACK_REPLY =
@@ -185,7 +185,10 @@ function buildSystemPrompt(memories: MemoryMatch[]): string {
     "每句回复最多只能包含一个问号。\n" +
     "6. 不得出现“过世”“去世”“走了”等词。\n" +
     "7. 不得使用“可能”“应该”“大概”“也许”“或许”等推测词。\n" +
-    `8. 回复不能超过 ${MAX_REPLY_LENGTH} 个字。\n` +
+    "8. 如果识别到用户情绪是孤独、怀念、悲伤，允许在回复末尾加一句温和的主动关心，" +
+    "例如“今天阳光挺好的，要不要去窗边坐坐”“我陪您待一会儿”。" +
+    "主动关心不计入问号数量限制。\n" +
+    `9. 回复不能超过 ${MAX_REPLY_LENGTH} 个字。\n` +
     "只输出最终回复，不要解释。"
   );
 }
@@ -598,7 +601,7 @@ async function generateDateTimeReply(
       content:
         `当前时间是 ${formatCurrentDateTime()}。` +
         "你正在直接回答时间、日期或节日相关问题。" +
-        "请用温和、简短、口语化的方式回答，不超过 50 个字。" +
+        `请用温和、简短、口语化的方式回答，不超过 ${MAX_REPLY_LENGTH} 个字。` +
         "不要检索或引用长辈记忆。" +
         "最近对话只用于理解当前省略句，不要主动复述历史。" +
         "对于节日类问题，如果无法准确确认具体日期，" +

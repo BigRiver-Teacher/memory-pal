@@ -35,7 +35,7 @@ test("chat route keeps the test_chat prompt constraints", () => {
     );
   }
 
-  assert.match(routeSource, /MAX_REPLY_LENGTH = 50/);
+  assert.match(routeSource, /MAX_REPLY_LENGTH = 100/);
   assert.match(routeSource, /countQuestionMarks/);
   assert.match(routeSource, /FORBIDDEN_WORDS/);
   assert.match(routeSource, /SPECULATION_WORDS/);

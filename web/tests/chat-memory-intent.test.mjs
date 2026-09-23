@@ -108,3 +108,10 @@ test("chat route filters location and person memories by entities", () => {
   assert.match(routeSource, /memory\.entities/);
   assert.match(routeSource, /filteredMemories\.length > 0/);
 });
+
+test("chat prompt allows active care for vulnerable emotions", () => {
+  assert.match(routeSource, /孤独、怀念、悲伤/);
+  assert.match(routeSource, /主动关心/);
+  assert.match(routeSource, /我陪您待一会儿/);
+  assert.match(routeSource, /不计入问号数量限制/);
+});
