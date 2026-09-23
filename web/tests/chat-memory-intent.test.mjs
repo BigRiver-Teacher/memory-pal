@@ -74,3 +74,11 @@ test("story extraction writes confidence and source grounding", () => {
   assert.match(routeSource, /source_offset: metadata\.source_offset/);
   assert.match(routeSource, /memoryPending/);
 });
+
+test("chat route prioritizes high-confidence memories after similarity filtering", () => {
+  assert.match(routeSource, /memoryIds/);
+  assert.match(routeSource, /\.in\("id", memoryIds\)/);
+  assert.match(routeSource, /confidenceById/);
+  assert.match(routeSource, /confidence > 0\.7/);
+  assert.match(routeSource, /right\.similarity - left\.similarity/);
+});

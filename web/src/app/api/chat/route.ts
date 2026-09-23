@@ -43,8 +43,10 @@ type ChatRequestBody = {
 };
 
 type MemoryMatch = {
+  memory_id: string;
   content: string;
   similarity: number;
+  confidence: number | null;
 };
 
 type ChatMessage = {
@@ -292,11 +294,60 @@ async function retrieveMemories(
     throw new Error(`Supabase match_memories failed: ${error.message}`);
   }
 
-  return ((data ?? []) as MemoryMatch[]).filter(
+  const relevantMemories = (
+    (data ?? []) as Array<{
+      memory_id: string;
+      content: string;
+      similarity: number;
+    }>
+  ).filter(
     (memory) =>
       typeof memory.similarity === "number" &&
       memory.similarity >= MIN_SIMILARITY,
   );
+
+  if (relevantMemories.length === 0) {
+    return [];
+  }
+
+  const memoryIds = relevantMemories.map((memory) => memory.memory_id);
+  const { data: confidenceData, error: confidenceError } =
+    await supabase
+      .from("memories")
+      .select("id, confidence")
+      .in("id", memoryIds);
+
+  if (confidenceError) {
+    throw new Error(
+      `Supabase memory confidence query failed: ${confidenceError.message}`,
+    );
+  }
+
+  const confidenceById = new Map(
+    (
+      (confidenceData ?? []) as Array<{
+        id: string;
+        confidence: number | null;
+      }>
+    ).map((memory) => [memory.id, memory.confidence]),
+  );
+
+  return relevantMemories
+    .map((memory) => ({
+      ...memory,
+      confidence: confidenceById.get(memory.memory_id) ?? null,
+    }))
+    .sort((left, right) => {
+      const leftPreferred =
+        left.confidence !== null && left.confidence > 0.7 ? 1 : 0;
+      const rightPreferred =
+        right.confidence !== null && right.confidence > 0.7 ? 1 : 0;
+
+      return (
+        rightPreferred - leftPreferred ||
+        right.similarity - left.similarity
+      );
+    });
 }
 
 async function requestDeepSeekReply(
