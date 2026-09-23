@@ -115,3 +115,13 @@ test("chat prompt allows active care for vulnerable emotions", () => {
   assert.match(routeSource, /我陪您待一会儿/);
   assert.match(routeSource, /不计入问号数量限制/);
 });
+
+test("chat route uses Qwen environment configuration", () => {
+  assert.match(routeSource, /QWEN_BASE_URL/);
+  assert.match(routeSource, /QWEN_API_KEY/);
+  assert.match(routeSource, /QWEN_MODEL/);
+  assert.match(routeSource, /qwen-plus/);
+  assert.match(routeSource, /getQwenApiUrl/);
+  assert.match(routeSource, /getQwenModel/);
+  assert.ok(!routeSource.includes("DEEPSEEK_API_KEY"));
+});

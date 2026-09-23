@@ -3,8 +3,16 @@ import { createSmartClient } from "supadns-js";
 
 export const runtime = "nodejs";
 
-const DEEPSEEK_API_URL = "https://api.deepseek.com/chat/completions";
-const DEEPSEEK_MODEL = "deepseek-chat";
+const QWEN_MODEL_DEFAULT = "qwen-plus";
+
+function getQwenApiUrl(): string {
+  const baseUrl = getRequiredEnv("QWEN_BASE_URL").replace(/\/+$/, "");
+  return `${baseUrl}/chat/completions`;
+}
+
+function getQwenModel(): string {
+  return process.env.QWEN_MODEL?.trim() || QWEN_MODEL_DEFAULT;
+}
 
 const SILICONFLOW_EMBEDDINGS_URL =
   "https://api.siliconflow.cn/v1/embeddings";
@@ -472,18 +480,18 @@ async function retrieveMemories(
     });
 }
 
-async function requestDeepSeekReply(
+async function requestQwenReply(
   apiKey: string,
   messages: ChatMessage[],
 ): Promise<string> {
-  const response = await fetch(DEEPSEEK_API_URL, {
+  const response = await fetch(getQwenApiUrl(), {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: DEEPSEEK_MODEL,
+      model: getQwenModel(),
       messages,
       temperature: 0.3,
     }),
@@ -491,7 +499,7 @@ async function requestDeepSeekReply(
 
   if (!response.ok) {
     throw new Error(
-      `DeepSeek request failed with status ${response.status}`,
+      `Qwen request failed with status ${response.status}`,
     );
   }
 
@@ -501,24 +509,24 @@ async function requestDeepSeekReply(
   const content = result.choices?.[0]?.message?.content?.trim();
 
   if (!content) {
-    throw new Error("Invalid DeepSeek response");
+    throw new Error("Invalid Qwen response");
   }
 
   return content;
 }
 
-async function requestDeepSeekJson(
+async function requestQwenJson(
   apiKey: string,
   messages: ChatMessage[],
 ): Promise<unknown> {
-  const response = await fetch(DEEPSEEK_API_URL, {
+  const response = await fetch(getQwenApiUrl(), {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: DEEPSEEK_MODEL,
+      model: getQwenModel(),
       messages,
       temperature: 0.1,
       response_format: { type: "json_object" },
@@ -527,7 +535,7 @@ async function requestDeepSeekJson(
 
   if (!response.ok) {
     throw new Error(
-      `DeepSeek JSON request failed with status ${response.status}`,
+      `Qwen JSON request failed with status ${response.status}`,
     );
   }
 
@@ -537,7 +545,7 @@ async function requestDeepSeekJson(
   const content = result.choices?.[0]?.message?.content?.trim();
 
   if (!content) {
-    throw new Error("Invalid DeepSeek JSON response");
+    throw new Error("Invalid Qwen JSON response");
   }
 
   return JSON.parse(content) as unknown;
@@ -549,7 +557,7 @@ async function classifyPatientIntent(
   conversationHistory: ChatMessage[],
 ): Promise<PatientIntent> {
   const contextText = formatConversationContext(conversationHistory);
-  const result = await requestDeepSeekJson(apiKey, [
+  const result = await requestQwenJson(apiKey, [
     {
       role: "system",
       content:
@@ -595,7 +603,7 @@ async function generateDateTimeReply(
   message: string,
   conversationHistory: ChatMessage[],
 ): Promise<string> {
-  return requestDeepSeekReply(apiKey, [
+  return requestQwenReply(apiKey, [
     {
       role: "system",
       content:
@@ -619,7 +627,7 @@ async function extractMemoryAnchors(
   apiKey: string,
   message: string,
 ): Promise<MemoryExtraction> {
-  const result = await requestDeepSeekJson(apiKey, [
+  const result = await requestQwenJson(apiKey, [
     {
       role: "system",
       content:
@@ -748,7 +756,7 @@ async function generateReply(
   ];
 
   for (let attempt = 0; attempt < MAX_REPLY_ATTEMPTS; attempt += 1) {
-    const reply = await requestDeepSeekReply(apiKey, messages);
+    const reply = await requestQwenReply(apiKey, messages);
 
     if (isAcceptableReply(reply)) {
       return reply;
@@ -816,7 +824,7 @@ export async function POST(request: Request): Promise<Response> {
       );
     }
 
-    const deepseekApiKey = getRequiredEnv("DEEPSEEK_API_KEY");
+    const qwenApiKey = getRequiredEnv("QWEN_API_KEY");
     const siliconflowApiKey = getRequiredEnv("SILICONFLOW_API_KEY");
     const supabaseUrl = getRequiredEnv("SUPABASE_URL");
     const supabaseServiceRoleKey = getRequiredEnv(
@@ -847,7 +855,7 @@ export async function POST(request: Request): Promise<Response> {
     const classifiedIntent =
       ruleIntent ??
       (await classifyPatientIntent(
-        deepseekApiKey,
+        qwenApiKey,
         body.message,
         conversationHistory,
       ));
@@ -855,7 +863,7 @@ export async function POST(request: Request): Promise<Response> {
 
     if (intent === "datetime") {
       const reply = await generateDateTimeReply(
-        deepseekApiKey,
+        qwenApiKey,
         body.message,
         conversationHistory,
       );
@@ -887,7 +895,7 @@ export async function POST(request: Request): Promise<Response> {
 
     if (intent === "story") {
       const metadata = await extractMemoryAnchors(
-        deepseekApiKey,
+        qwenApiKey,
         body.message,
       );
 
@@ -915,7 +923,7 @@ export async function POST(request: Request): Promise<Response> {
     const reply =
       filteredMemories.length > 0
         ? await generateReply(
-            deepseekApiKey,
+            qwenApiKey,
             body.message,
             memories,
             conversationHistory,
