@@ -29,6 +29,12 @@ test("login form converts phone to virtual email and uses Supabase Auth", () => 
   assert.ok(formSource.includes('router.push("/home")'));
 });
 
+test("login buttons avoid translation hydration mismatches", () => {
+  assert.ok(formSource.includes("suppressHydrationWarning"));
+  assert.ok(formSource.includes('translate="no"'));
+  assert.ok(formSource.includes("notranslate"));
+});
+
 test("login form shows clear duplicate and credential errors", () => {
   assert.ok(formSource.includes("该手机号已注册"));
   assert.ok(formSource.includes("手机号或密码错误"));

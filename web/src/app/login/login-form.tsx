@@ -258,16 +258,20 @@ export default function LoginForm({
           <div className="flex flex-col gap-4 sm:flex-row">
             <button
               type="submit"
+              suppressHydrationWarning
+              translate="no"
               disabled={isBusy}
-              className="min-h-16 flex-1 rounded-2xl bg-[#205c4b] px-6 text-xl font-bold text-white shadow-md transition hover:bg-[#18493c] focus:outline-none focus:ring-4 focus:ring-[#4f8f78]/35 disabled:cursor-not-allowed disabled:opacity-60"
+              className="notranslate min-h-16 flex-1 rounded-2xl bg-[#205c4b] px-6 text-xl font-bold text-white shadow-md transition hover:bg-[#18493c] focus:outline-none focus:ring-4 focus:ring-[#4f8f78]/35 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isLoggingIn ? "正在登录..." : "登录"}
             </button>
             <button
               type="button"
               onClick={() => void register()}
+              suppressHydrationWarning
+              translate="no"
               disabled={isBusy}
-              className="min-h-16 flex-1 rounded-2xl border-2 border-[#205c4b] bg-white px-6 text-xl font-bold text-[#205c4b] shadow-sm transition hover:bg-[#eef7f2] focus:outline-none focus:ring-4 focus:ring-[#4f8f78]/25 disabled:cursor-not-allowed disabled:opacity-60"
+              className="notranslate min-h-16 flex-1 rounded-2xl border-2 border-[#205c4b] bg-white px-6 text-xl font-bold text-[#205c4b] shadow-sm transition hover:bg-[#eef7f2] focus:outline-none focus:ring-4 focus:ring-[#4f8f78]/25 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {isRegistering ? "正在注册..." : "注册"}
             </button>
