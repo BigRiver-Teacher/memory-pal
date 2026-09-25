@@ -1,0 +1,67 @@
+2333058 docs: add git commit history report
+940badd feat: switch chat API to Qwen
+1b31495 test: add Qwen capability probe
+7ff7f1a feat: extend replies and allow active care
+3485b2c feat: add intent-aware memory entity filtering
+bce9bd7 fix: keep legacy memories at similarity threshold
+13f5030 fix: gate legacy memory confidence fallback
+f8c5013 feat: prioritize high-confidence memories
+8bca7a5 feat: strengthen memory extraction schema
+fc4878b feat: add memory extraction schema fields
+dd8d5b9 feat: add global warm background
+4917616 fix: resolve login hydration and local env config
+a401114 test: include browser env test script
+9e4f978 fix: expose Supabase config to browser clients
+96ce002 fix: use smart Supabase DNS client on server
+ddbb7f8 chore: rename patient copy to elder
+ed1c305 feat: add recent chat context
+b6e1c9b feat: add datetime chat intent
+f97017b chore: ignore local env files
+1e4b06d feat: polish patient today view
+3bc7279 feat: expand family analytics dimensions
+c86197f feat: add patient today view
+c22f8fd feat: add markdown patient data export
+5c30281 feat: add report history
+3e2c6fb feat: add memory detail API and page
+e966099 fix: clean memory detail interactions
+8f702e4 chore: remove unused memory types
+11fa60a feat: add memory edit and delete
+9a22f26 feat: add patient voice input
+4db4eeb feat: add family analytics dashboard
+b81b68c feat: add patient selection and dynamic chat patient
+2408cb7 feat: add report local cache
+3058dd6 fix: grant reports access to service role
+7915f2d feat: cache daily report advice
+93dc7eb fix: show patient contact and use link navigation
+160ac69 feat: add family settings page
+3718056 feat: add family bottom navigation
+dfdfcb6 fix: make patient cards fully clickable
+0947930 fix: add patient switching navigation
+837b761 fix: route family entry to patient management
+afb3d12 feat: add multi-patient management
+f98b5d8 feat: add family patient binding flow
+4e67ffb feat: add authenticated home routing
+d464335 feat: add phone-based auth login page
+cb66f84 fix: make family report advice third-person
+adc75e1 feat: add family memory report
+b3fbeb0 feat: enrich family memories with metadata
+fb5094a feat: add family memory management page
+42e2a1d feat: handle date questions and store shared memories
+30e1630 fix: preserve text input focus after sending
+84a0fce fix: filter memories and improve patient chat UX
+6be60b7 feat: connect patient page to chat api
+8e1b385 fix: align chat prompt with test_chat rules
+ba50369 feat: add patient chat API route
+5b951a6 feat: refine patient page typography and voice input
+4300678 feat: add patient chat page skeleton
+bb73407 chore: initialize Next.js web app
+6b5fd4c feat: add intent-specific chat scenarios
+5acfebc fix: allow one guiding question in replies
+9b92a96 feat: add complete RAG conversation script
+f0b4c6d feat: add Supabase RAG test script
+e2041d5 feat: add SiliconFlow embedding test script
+94e4b15 fix: prevent fabricated current-state replies
+afc3d37 feat: add tone-safe DeepSeek reply script
+6fb8e53 feat: add DeepSeek API test script
+359a3fb chore: ignore .env
+7afe6b1 docs: add AGENTS.md
