@@ -365,19 +365,30 @@ function isPersonEntity(entity: string): boolean {
   );
 }
 
+// Memories written before the extraction schema existed have no entities.
+// Falling back to the content keeps them retrievable instead of silently
+// dropping them from location and person questions.
+function getMemoryEntityTerms(memory: MemoryMatch): string[] {
+  if (memory.entities && memory.entities.length > 0) {
+    return memory.entities;
+  }
+
+  return [memory.content];
+}
+
 function filterMemoriesByIntent(
   memories: MemoryMatch[],
   intent: PatientIntent,
 ): MemoryMatch[] {
   if (intent === "location") {
     return memories.filter((memory) =>
-      (memory.entities ?? []).some(isLocationEntity),
+      getMemoryEntityTerms(memory).some(isLocationEntity),
     );
   }
 
   if (intent === "person") {
     return memories.filter((memory) =>
-      (memory.entities ?? []).some(isPersonEntity),
+      getMemoryEntityTerms(memory).some(isPersonEntity),
     );
   }
 

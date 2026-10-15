@@ -125,3 +125,24 @@ test("chat route uses Qwen environment configuration", () => {
   assert.match(routeSource, /getQwenModel/);
   assert.ok(!routeSource.includes("DEEPSEEK_API_KEY"));
 });
+
+test("chat route keeps memories without entities by matching content", () => {
+  assert.match(routeSource, /getMemoryEntityTerms/);
+  assert.match(
+    routeSource,
+    /if \(memory\.entities && memory\.entities\.length > 0\)/,
+  );
+  assert.match(routeSource, /return \[memory\.content\]/);
+  assert.match(
+    routeSource,
+    /getMemoryEntityTerms\(memory\)\.some\(isLocationEntity\)/,
+  );
+  assert.match(
+    routeSource,
+    /getMemoryEntityTerms\(memory\)\.some\(isPersonEntity\)/,
+  );
+  assert.ok(
+    !routeSource.includes("(memory.entities ?? []).some("),
+    "legacy memories without entities must not be dropped outright",
+  );
+});
