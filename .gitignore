@@ -1,2 +1,7 @@
 .env
 .env.local
+
+# 应用实际位于 web/，以下为早期「代码放在根目录」布局遗留的构建产物
+/node_modules
+/.next
+/next-env.d.ts
