@@ -319,34 +319,54 @@ function formatConversationContext(
     .join("\n");
 }
 
+// 长辈讲述自身经历或生活片段时出现的时间、事件锚点。
+const NARRATION_TIME_PATTERN =
+  /以前|年轻|小时候|当年|当时|曾经|那天|上次|前些天|昨天|前天|今天|早上|上午|中午|下午|晚上|刚才|中秋|春节|国庆|过节|生日/;
+
+// 疑问句标记。只有疑问句才按提问意图处理，否则长辈叙述生活片段的
+// 陈述句会被下面的关键词规则抢走，内容就永远写不进记忆。
+const QUESTION_MARKER_PATTERN =
+  /[?？]|吗|呢|谁|什么|怎么|哪|几|多少|是不是|有没有|对不对|好不好/;
+
+function isQuestion(message: string): boolean {
+  return QUESTION_MARKER_PATTERN.test(message);
+}
+
 function classifyIntentByRules(
   message: string,
   conversationHistory: ChatMessage[],
 ): PatientIntent | null {
-  if (/哪去|去哪|在哪|什么地方|哪里|哪儿/.test(message)) {
+  const trimmed = message.trim();
+
+  // 陈述式自述优先判定为 story：长辈讲自己的经历或生活片段时，
+  // "我女儿昨天来看我了"会被"来看我"误判成人称提问，
+  // "我中秋节和儿子一起过的"会被"中秋"误判成问日期，
+  // 这些内容原本会绕开记忆写入分支。
+  if (
+    !isQuestion(trimmed) &&
+    /^我/.test(trimmed) &&
+    NARRATION_TIME_PATTERN.test(trimmed)
+  ) {
+    return "story";
+  }
+
+  if (/哪去|去哪|在哪|什么地方|哪里|哪儿/.test(trimmed)) {
     return "location";
   }
 
-  if (/谁|叫什么|什么时候来|来看我|会来吗/.test(message)) {
+  if (/谁|叫什么|什么时候来|来看我|会来吗/.test(trimmed)) {
     return "person";
   }
 
   if (
-    isDateTimeQuestion(message) ||
-    contextSuggestsDateTime(message, conversationHistory)
+    isDateTimeQuestion(trimmed) ||
+    contextSuggestsDateTime(trimmed, conversationHistory)
   ) {
     return "datetime";
   }
 
-  if (/吃了吗|做了吗|是不是|有没有|干什么|做什么|是什么/.test(message)) {
+  if (/吃了吗|做了吗|是不是|有没有|干什么|做什么|是什么/.test(trimmed)) {
     return "memory";
-  }
-
-  if (
-    /^我/.test(message.trim()) &&
-    /以前|年轻|小时候|当年|当时|曾经/.test(message)
-  ) {
-    return "story";
   }
 
   return null;

@@ -146,3 +146,41 @@ test("chat route keeps memories without entities by matching content", () => {
     "legacy memories without entities must not be dropped outright",
   );
 });
+
+test("chat route treats first person narration as a story before question rules", () => {
+  assert.match(routeSource, /NARRATION_TIME_PATTERN/);
+  assert.match(routeSource, /QUESTION_MARKER_PATTERN/);
+  assert.match(routeSource, /function isQuestion/);
+  assert.match(routeSource, /!isQuestion\(trimmed\)/);
+
+  const narrationIndex = routeSource.indexOf(
+    "NARRATION_TIME_PATTERN.test(trimmed)",
+  );
+  const locationIndex = routeSource.indexOf("哪去|去哪|在哪");
+  const personIndex = routeSource.indexOf("谁|叫什么|什么时候来");
+
+  assert.ok(narrationIndex >= 0, "narration check is missing");
+  assert.ok(locationIndex >= 0, "location rule is missing");
+  assert.ok(personIndex >= 0, "person rule is missing");
+  assert.ok(
+    narrationIndex < locationIndex && narrationIndex < personIndex,
+    "narration must be evaluated before the question keywords",
+  );
+});
+
+test("chat route covers daily life and festival narration anchors", () => {
+  const narrationMatch = routeSource.match(
+    /const NARRATION_TIME_PATTERN =\s*\n\s*\/([^/]+)\/;/,
+  );
+
+  assert.ok(narrationMatch, "NARRATION_TIME_PATTERN literal is missing");
+
+  const anchors = narrationMatch[1].split("|");
+
+  for (const anchor of ["以前", "昨天", "今天", "中午", "晚上", "中秋", "春节", "国庆"]) {
+    assert.ok(
+      anchors.includes(anchor),
+      `narration anchors must include ${anchor}`,
+    );
+  }
+});
