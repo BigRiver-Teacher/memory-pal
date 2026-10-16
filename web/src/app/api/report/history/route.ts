@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSmartClient } from "supadns-js";
+import { describeApiFailure } from "@/lib/server-env";
 
 export const runtime = "nodejs";
 
@@ -138,7 +139,7 @@ export async function GET(request: Request): Promise<Response> {
     console.error("Report history API error:", error);
 
     return Response.json(
-      { error: "读取日报历史失败，请稍后重试。" },
+      { error: describeApiFailure(error, "读取日报历史失败，请稍后重试。") },
       { status: 500 },
     );
   }

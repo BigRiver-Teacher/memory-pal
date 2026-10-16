@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSmartClient } from "supadns-js";
+import { describeApiFailure } from "@/lib/server-env";
 
 export const runtime = "nodejs";
 
@@ -532,7 +533,7 @@ export async function GET(request: Request): Promise<Response> {
     console.error("Report API error:", error);
 
     return Response.json(
-      { error: "生成记忆日报失败，请稍后重试。" },
+      { error: describeApiFailure(error, "生成记忆日报失败，请稍后重试。") },
       { status: 500 },
     );
   }

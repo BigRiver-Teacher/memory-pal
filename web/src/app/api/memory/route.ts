@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSmartClient } from "supadns-js";
+import { describeApiFailure } from "@/lib/server-env";
 
 export const runtime = "nodejs";
 
@@ -344,7 +345,7 @@ export async function GET(request: Request): Promise<Response> {
     console.error("Memory GET API error:", error);
 
     return Response.json(
-      { error: "读取记忆失败，请稍后重试。" },
+      { error: describeApiFailure(error, "读取记忆失败，请稍后重试。") },
       { status: 500 },
     );
   }
@@ -419,7 +420,7 @@ export async function POST(request: Request): Promise<Response> {
     console.error("Memory POST API error:", error);
 
     return Response.json(
-      { error: "保存记忆失败，请稍后重试。" },
+      { error: describeApiFailure(error, "保存记忆失败，请稍后重试。") },
       { status: 500 },
     );
   }
@@ -507,7 +508,7 @@ export async function PUT(request: Request): Promise<Response> {
     console.error("Memory PUT API error:", error);
 
     return Response.json(
-      { error: "更新记忆失败，请稍后重试。" },
+      { error: describeApiFailure(error, "更新记忆失败，请稍后重试。") },
       { status: 500 },
     );
   }
@@ -562,7 +563,7 @@ export async function DELETE(request: Request): Promise<Response> {
     console.error("Memory DELETE API error:", error);
 
     return Response.json(
-      { error: "删除记忆失败，请稍后重试。" },
+      { error: describeApiFailure(error, "删除记忆失败，请稍后重试。") },
       { status: 500 },
     );
   }

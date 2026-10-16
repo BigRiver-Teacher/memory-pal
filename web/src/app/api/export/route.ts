@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createSmartClient } from "supadns-js";
+import { describeApiFailure } from "@/lib/server-env";
 
 export const runtime = "nodejs";
 
@@ -297,7 +298,7 @@ export async function GET(request: Request): Promise<Response> {
     console.error("Export API error:", error);
 
     return Response.json(
-      { error: "导出长辈数据失败，请稍后重试。" },
+      { error: describeApiFailure(error, "导出长辈数据失败，请稍后重试。") },
       { status: 500 },
     );
   }
