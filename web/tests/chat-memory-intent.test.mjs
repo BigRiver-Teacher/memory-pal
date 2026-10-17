@@ -26,18 +26,50 @@ test("chat route recognizes datetime intent with keyword fallback", () => {
   assert.match(routeSource, /国庆/);
 });
 
-test("chat route answers datetime without memory retrieval", () => {
-  const datetimeIndex = routeSource.indexOf('if (intent === "datetime")');
-  const embeddingIndex = routeSource.indexOf(
-    "const queryEmbedding = await createEmbedding",
-  );
-
-  assert.ok(datetimeIndex >= 0);
-  assert.ok(embeddingIndex >= 0);
-  assert.ok(datetimeIndex < embeddingIndex);
+test("chat route answers pure date questions from server computed facts", () => {
+  assert.match(routeSource, /function buildDateFacts/);
+  assert.match(routeSource, /function isExplicitDateQuestion/);
+  assert.match(routeSource, /系统计算的日期，必须严格使用，禁止自行推算/);
+  assert.match(routeSource, /日期与星期对照/);
   assert.match(routeSource, /generateDateTimeReply/);
   assert.match(routeSource, /当前时间是 \$\{formatCurrentDateTime\(\)\}/);
   assert.match(routeSource, /这个我记不太清了，您可以问问家里人/);
+});
+
+test("chat route still retrieves memories for personal datetime questions", () => {
+  const datetimeIndex = routeSource.indexOf('if (intent === "datetime")');
+  const guardIndex = routeSource.indexOf(
+    "if (!isExplicitDateQuestion(body.message))",
+  );
+
+  assert.ok(datetimeIndex >= 0);
+  assert.ok(guardIndex > datetimeIndex);
+  assert.match(routeSource, /dateQuestionMemories/);
+  assert.match(
+    routeSource,
+    /dateQuestionMemories = await retrieveMemories\(/,
+  );
+});
+
+test("chat route annotates memory dates with weekdays", () => {
+  assert.match(routeSource, /function annotateMemoryDates/);
+  assert.match(routeSource, /function buildMemoryBlock/);
+  assert.match(routeSource, /annotateMemoryDates\(memory\.content, now\)/);
+  assert.match(routeSource, /const memoryBlock = buildMemoryBlock\(memories, new Date\(\)\)/);
+});
+
+test("chat route keeps memories when entity matching finds nothing", () => {
+  assert.match(
+    routeSource,
+    /return matches\.length > 0 \? matches : memories/,
+  );
+});
+
+test("chat route passes filtered memories to the reply prompt", () => {
+  assert.match(
+    routeSource,
+    /generateReply\([\s\S]*?filteredMemories,[\s\S]*?conversationHistory/,
+  );
 });
 
 test("chat route keeps story extraction and storage", () => {
@@ -133,13 +165,10 @@ test("chat route keeps memories without entities by matching content", () => {
     /if \(memory\.entities && memory\.entities\.length > 0\)/,
   );
   assert.match(routeSource, /return \[memory\.content\]/);
+  assert.match(routeSource, /getMemoryEntityTerms\(memory\)\.some\(/);
   assert.match(
     routeSource,
-    /getMemoryEntityTerms\(memory\)\.some\(isLocationEntity\)/,
-  );
-  assert.match(
-    routeSource,
-    /getMemoryEntityTerms\(memory\)\.some\(isPersonEntity\)/,
+    /intent === "location" \? isLocationEntity : isPersonEntity/,
   );
   assert.ok(
     !routeSource.includes("(memory.entities ?? []).some("),

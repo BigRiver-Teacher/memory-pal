@@ -164,6 +164,114 @@ function formatCurrentDateTime(): string {
   }).format(new Date());
 }
 
+const SHANGHAI_TIME_ZONE = "Asia/Shanghai";
+const WEEKDAY_NAMES_CN = [
+  "星期一",
+  "星期二",
+  "星期三",
+  "星期四",
+  "星期五",
+  "星期六",
+  "星期日",
+];
+
+function getShanghaiToday(now: Date): Date {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: SHANGHAI_TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const values = Object.fromEntries(
+    parts
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value]),
+  );
+
+  return new Date(
+    Date.UTC(
+      Number(values.year),
+      Number(values.month) - 1,
+      Number(values.day),
+    ),
+  );
+}
+
+function addDays(date: Date, days: number): Date {
+  return new Date(date.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+function formatDateCn(date: Date): string {
+  return `${date.getUTCFullYear()}年${date.getUTCMonth() + 1}月${date.getUTCDate()}日`;
+}
+
+function formatWeekdayCn(date: Date): string {
+  const index = date.getUTCDay() === 0 ? 6 : date.getUTCDay() - 1;
+  return WEEKDAY_NAMES_CN[index];
+}
+
+// 让模型自行推算"下周是几号到几号"并不可靠（实测会答错），
+// 这里在服务端把常用区间算好，作为权威事实交给模型直接引用。
+function buildDateFacts(now: Date): string {
+  const today = getShanghaiToday(now);
+  const mondayOffset = today.getUTCDay() === 0 ? 6 : today.getUTCDay() - 1;
+  const thisMonday = addDays(today, -mondayOffset);
+  const range = (start: Date) =>
+    `${formatDateCn(start)}（周一）至 ${formatDateCn(addDays(start, 6))}（周日）`;
+
+  return [
+    `今天是 ${formatDateCn(today)}${formatWeekdayCn(today)}。`,
+    `明天是 ${formatDateCn(addDays(today, 1))}，后天是 ${formatDateCn(addDays(today, 2))}，` +
+      `昨天是 ${formatDateCn(addDays(today, -1))}，前天是 ${formatDateCn(addDays(today, -2))}。`,
+    `本周：${range(thisMonday)}。`,
+    `下周：${range(addDays(thisMonday, 7))}。`,
+    `上周：${range(addDays(thisMonday, -7))}。`,
+    "日期与星期对照：" +
+      Array.from({ length: 21 }, (_, offset) => {
+        const day = addDays(today, offset);
+        return `${formatDateCn(day)}${formatWeekdayCn(day)}`;
+      }).join("，"),
+  ].join("\n");
+}
+
+// 记忆里常出现"10月24日"这类日期，模型自行推星期容易出错，
+// 这里统一补上正确星期，让它直接引用。
+function annotateMemoryDates(content: string, now: Date): string {
+  const today = getShanghaiToday(now);
+  const year = today.getUTCFullYear();
+
+  return content.replace(
+    /(\d{1,2})月(\d{1,2})[日号]/g,
+    (matched, monthText: string, dayText: string) => {
+      const month = Number(monthText);
+      const day = Number(dayText);
+      const date = new Date(Date.UTC(year, month - 1, day));
+
+      if (
+        date.getUTCMonth() !== month - 1 ||
+        date.getUTCDate() !== day ||
+        Math.abs(date.getTime() - today.getTime()) > 180 * 86400000
+      ) {
+        return matched;
+      }
+
+      return `${matched}（${formatWeekdayCn(date)}）`;
+    },
+  );
+}
+
+function buildMemoryBlock(memories: MemoryMatch[], now: Date): string {
+  return memories.length > 0
+    ? memories
+        .map((memory) => `- ${annotateMemoryDates(memory.content, now)}`)
+        .join("\n")
+    : "没有检索到相关记忆。";
+}
+// 明确在问"日期/时间本身"（几号、星期几、几点）的问题只用系统日期作答；
+// 其余问题（如"我二儿子什么时候过生日"）仍然必须走记忆检索。
+function isExplicitDateQuestion(message: string): boolean {
+  return /几号|几月几|星期几|周几|几点|多少号/.test(message);
+}
 function isDateTimeQuestion(message: string): boolean {
   return /几号|星期几|周几|几点|什么时候|时间|节日|中秋|春节|国庆/.test(
     message,
@@ -172,10 +280,7 @@ function isDateTimeQuestion(message: string): boolean {
 
 function buildSystemPrompt(memories: MemoryMatch[]): string {
   const currentDateTime = formatCurrentDateTime();
-  const memoryBlock =
-    memories.length > 0
-      ? memories.map((memory) => `- ${memory.content}`).join("\n")
-      : "没有检索到相关记忆。";
+  const memoryBlock = buildMemoryBlock(memories, new Date());
 
   return (
     "你是一个温和、克制的陪伴助手。\n" +
@@ -198,6 +303,8 @@ function buildSystemPrompt(memories: MemoryMatch[]): string {
     "例如“今天阳光挺好的，要不要去窗边坐坐”“我陪您待一会儿”。" +
     "主动关心不计入问号数量限制。\n" +
     `9. 回复不能超过 ${MAX_REPLY_LENGTH} 个字。\n` +
+    "10. 如果长辈问的是自己近期的安排或计划，而检索到的记忆里有多条相关条目，" +
+    "请在字数限制内逐条简要列出，不要只挑一条。\n" +
     "只输出最终回复，不要解释。"
   );
 }
@@ -401,19 +508,20 @@ function filterMemoriesByIntent(
   memories: MemoryMatch[],
   intent: PatientIntent,
 ): MemoryMatch[] {
-  if (intent === "location") {
-    return memories.filter((memory) =>
-      getMemoryEntityTerms(memory).some(isLocationEntity),
-    );
+  if (intent !== "location" && intent !== "person") {
+    return memories;
   }
 
-  if (intent === "person") {
-    return memories.filter((memory) =>
-      getMemoryEntityTerms(memory).some(isPersonEntity),
-    );
-  }
+  const matches = memories.filter((memory) =>
+    getMemoryEntityTerms(memory).some(
+      intent === "location" ? isLocationEntity : isPersonEntity,
+    ),
+  );
 
-  return memories;
+  // 实体过滤只用于"优先挑出对得上的记忆"。如果一条都没对上
+  // （例如"我大学同学呢"里的"大学同学"不在词表内），就保留全部
+  // 检索结果，否则会把本来能回答的记忆整批丢掉，退化成兜底回复。
+  return matches.length > 0 ? matches : memories;
 }
 function contextSuggestsDateTime(
   message: string,
@@ -634,18 +742,34 @@ async function generateDateTimeReply(
   apiKey: string,
   message: string,
   conversationHistory: ChatMessage[],
+  memories: MemoryMatch[] = [],
 ): Promise<string> {
+  const memoryBlock = buildMemoryBlock(memories, new Date());
+
   return requestQwenReply(apiKey, [
     {
       role: "system",
       content:
-        `当前时间是 ${formatCurrentDateTime()}。` +
-        "你正在直接回答时间、日期或节日相关问题。" +
-        `请用温和、简短、口语化的方式回答，不超过 ${MAX_REPLY_LENGTH} 个字。` +
-        "不要检索或引用长辈记忆。" +
-        "最近对话只用于理解当前省略句，不要主动复述历史。" +
-        "对于节日类问题，如果无法准确确认具体日期，" +
-        "必须回答“这个我记不太清了，您可以问问家里人”，不要编造日期。",
+        `当前时间是 ${formatCurrentDateTime()}。\n` +
+        "【系统计算的日期，必须严格使用，禁止自行推算或改写】\n" +
+        `${buildDateFacts(new Date())}\n\n` +
+        "【检索到的长辈记忆】\n" +
+        `${memoryBlock}\n\n` +
+        "【最高优先级】如果问的是长辈近期有什么安排、计划或日程，" +
+        "必须把【检索到的长辈记忆】里的每一条都按时间顺序列出来，" +
+        "用分号隔开，一条都不能省略；" +
+        "禁止在还有条目时声称“没有其他安排”或“查不到”。\n\n" +
+        "其余情况请遵守以下要求：\n" +
+        "1. 问今天几号、星期几、现在几点、本周或下周是几号到几号时，" +
+        "必须直接引用【系统计算的日期】，不得自行推算。\n" +
+        "2. 问长辈自己或家人的具体安排、生日、来访、过节计划时，" +
+        "必须依据【检索到的长辈记忆】回答；记忆里没有就回答" +
+        "“这个我记不太清了，您可以问问家里人”，不要编造。\n" +
+        `3. 用温和、简短、口语化的方式回答，不超过 ${MAX_REPLY_LENGTH} 个字。\n` +
+        "4. 问长辈近期安排或计划时，必须把【检索到的长辈记忆】里所有相关条目" +
+        "按时间顺序逐条简要列出，一条都不能漏；不要只挑一条，" +
+        "也不要编造未检索到的内容。\n" +
+        "5. 最近对话只用于理解当前省略句，不要主动复述历史。",
     },
     ...conversationHistory,
     {
@@ -894,10 +1018,29 @@ export async function POST(request: Request): Promise<Response> {
     const intent = ruleIntent ?? classifiedIntent;
 
     if (intent === "datetime") {
+      // 纯日期问题（几号、星期几、几点）只用系统日期作答；
+      // 其余（生日、来访、过节计划、近期安排）必须带上记忆，
+      // 否则家属录入的记忆在这条分支上永远不会被用到。
+      let dateQuestionMemories: MemoryMatch[] = [];
+
+      if (!isExplicitDateQuestion(body.message)) {
+        const dateQueryEmbedding = await createEmbedding(
+          body.message,
+          siliconflowApiKey,
+        );
+        dateQuestionMemories = await retrieveMemories(
+          supabase,
+          body.patientId,
+          dateQueryEmbedding,
+        );
+      }
+
+
       const reply = await generateDateTimeReply(
         qwenApiKey,
         body.message,
         conversationHistory,
+        dateQuestionMemories,
       );
 
       if (!isTestMode) {
@@ -952,12 +1095,13 @@ export async function POST(request: Request): Promise<Response> {
       queryEmbedding,
     );
     const filteredMemories = filterMemoriesByIntent(memories, intent);
+
     const reply =
       filteredMemories.length > 0
         ? await generateReply(
             qwenApiKey,
             body.message,
-            memories,
+            filteredMemories,
             conversationHistory,
           )
         : FALLBACK_REPLY;
