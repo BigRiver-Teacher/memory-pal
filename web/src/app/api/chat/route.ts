@@ -267,9 +267,19 @@ function buildMemoryBlock(memories: MemoryMatch[], now: Date): string {
         .join("\n")
     : "没有检索到相关记忆。";
 }
+// 询问长辈或家人自身事实（生日、纪念日、体检、来访、过节安排）的句子，
+// 同样会带上"几号""几月几"，但它问的不是系统当前日期。这类问题必须走
+// 记忆检索，否则家属录入的生日、体检日期永远只能得到"记不太清了"。
+const PERSONAL_FACT_PATTERN =
+  /生日|寿辰|纪念日|结婚|金婚|体检|复查|复诊|安排|计划|日程|来访|回来|聚会|过节|吃药/;
+
 // 明确在问"日期/时间本身"（几号、星期几、几点）的问题只用系统日期作答；
 // 其余问题（如"我二儿子什么时候过生日"）仍然必须走记忆检索。
 function isExplicitDateQuestion(message: string): boolean {
+  if (PERSONAL_FACT_PATTERN.test(message)) {
+    return false;
+  }
+
   return /几号|几月几|星期几|周几|几点|多少号/.test(message);
 }
 function isDateTimeQuestion(message: string): boolean {
@@ -512,10 +522,15 @@ function filterMemoriesByIntent(
     return memories;
   }
 
-  const matches = memories.filter((memory) =>
-    getMemoryEntityTerms(memory).some(
-      intent === "location" ? isLocationEntity : isPersonEntity,
-    ),
+  const matches = memories.filter(
+    (memory) =>
+      // 最相似的那条记忆始终保留：宠物、物品类问题（"我养的那只鸟叫什么？"）
+      // 会被"叫什么"判成 person 意图，而它的记忆里没有人物实体，
+      // 一旦被整批过滤掉，模型就只能编一个名字出来。
+      memory === memories[0] ||
+      getMemoryEntityTerms(memory).some(
+        intent === "location" ? isLocationEntity : isPersonEntity,
+      ),
   );
 
   // 实体过滤只用于"优先挑出对得上的记忆"。如果一条都没对上

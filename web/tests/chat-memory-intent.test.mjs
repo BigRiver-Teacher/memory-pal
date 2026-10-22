@@ -36,6 +36,30 @@ test("chat route answers pure date questions from server computed facts", () => 
   assert.match(routeSource, /这个我记不太清了，您可以问问家里人/);
 });
 
+test("chat route keeps personal date facts on the memory path", () => {
+  assert.match(routeSource, /PERSONAL_FACT_PATTERN/);
+
+  for (const keyword of ["生日", "纪念日", "体检", "安排", "来访"]) {
+    assert.ok(
+      routeSource.includes(keyword),
+      `个人事实关键词必须包含 ${keyword}`,
+    );
+  }
+
+  const guardIndex = routeSource.indexOf(
+    "PERSONAL_FACT_PATTERN.test(message)",
+  );
+  const plainDateIndex = routeSource.indexOf(
+    "return /几号|几月几|星期几|周几|几点|多少号/.test(message);",
+  );
+
+  assert.ok(guardIndex >= 0, "personal fact guard is missing");
+  assert.ok(
+    plainDateIndex > guardIndex,
+    "personal facts must be excluded before the plain date match",
+  );
+});
+
 test("chat route still retrieves memories for personal datetime questions", () => {
   const datetimeIndex = routeSource.indexOf('if (intent === "datetime")');
   const guardIndex = routeSource.indexOf(
@@ -62,6 +86,17 @@ test("chat route keeps memories when entity matching finds nothing", () => {
   assert.match(
     routeSource,
     /return matches\.length > 0 \? matches : memories/,
+  );
+});
+
+test("chat route never drops the most similar memory during entity filtering", () => {
+  // 宠物、物品类问题会被"叫什么"判成 person 意图，如果实体过滤把最相似的
+  // 那条一起丢掉，模型就只能编造答案。
+  assert.match(routeSource, /memory === memories\[0\] \|\|/);
+  assert.match(routeSource, /function filterMemoriesByIntent/);
+  assert.match(
+    routeSource,
+    /const matches = memories\.filter\(\s*\(memory\) =>/,
   );
 });
 
