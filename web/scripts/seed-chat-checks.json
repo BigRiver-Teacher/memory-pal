@@ -1,0 +1,62 @@
+[
+  {
+    "intent": "person",
+    "question": "我老伴叫什么名字？",
+    "expect": ["王桂英"]
+  },
+  {
+    "intent": "person",
+    "question": "我女儿住在哪里？",
+    "expect": ["南京", "李小敏"]
+  },
+  {
+    "intent": "person",
+    "question": "我孙子叫什么？",
+    "expect": ["李念"]
+  },
+  {
+    "intent": "location",
+    "question": "我老家在哪？",
+    "expect": ["芜湖", "安徽"]
+  },
+  {
+    "intent": "memory",
+    "question": "我最爱吃什么菜？",
+    "expect": ["狮子头"]
+  },
+  {
+    "intent": "memory",
+    "question": "我的血压药放在哪里？",
+    "expect": ["电视柜", "抽屉"]
+  },
+  {
+    "intent": "memory",
+    "question": "我养的那只鸟叫什么？",
+    "expect": ["小黄", "八哥"]
+  },
+  {
+    "intent": "datetime",
+    "question": "我生日是几月几号？",
+    "expect": ["十一月八日", "11月8日", "11月8号"]
+  },
+  {
+    "intent": "datetime",
+    "question": "我近期有什么安排？",
+    "expect": ["十月二十日", "10月20日", "体检", "生日"]
+  },
+  {
+    "intent": "memory",
+    "question": "我年轻的时候是做什么工作的？",
+    "expect": ["老师", "语文", "小学"]
+  },
+  {
+    "intent": "memory",
+    "question": "我老伴最会做什么饭？",
+    "expect": ["饺子"]
+  },
+  {
+    "intent": "memory",
+    "question": "我每天晚饭后做什么？",
+    "expect": ["三千步", "散步", "走走"]
+  }
+]
